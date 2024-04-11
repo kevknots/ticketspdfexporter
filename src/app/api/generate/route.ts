@@ -12,11 +12,6 @@ const getImageData = async (url: string) => {
     const buffer = await response.buffer();
     return buffer.toString('base64');
 };
-export const config = {
-  api: {
-    responseLimit: false,
-  },
-}
 
 function formatPhoneNumber(phoneNumberString: string) {
   var cleaned = ('' + phoneNumberString).replace(/\D/g, '');
