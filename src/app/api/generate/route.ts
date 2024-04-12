@@ -23,6 +23,8 @@ function formatPhoneNumber(phoneNumberString: string) {
   return null;
 }
 
+export const maxDuration = 300
+
 export async function GET(req: NextRequest) {
 
      // Create a new PDF document
