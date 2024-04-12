@@ -4,10 +4,10 @@ import { NextRequest } from "next/server";
 //import PDFDocument from 'pdfkit';
 import { db } from "@/lib/db";
 import jsPDF from 'jspdf';
-import fetch from 'node-fetch';
 
 // A function to fetch and encode images as base64
 const getImageData = async (url: string) => {
+    const fetch = (await import('node-fetch')).default
     const response = await fetch(url);
     const buffer = await response.buffer();
     return buffer.toString('base64');
