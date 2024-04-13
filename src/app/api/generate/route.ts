@@ -72,17 +72,17 @@ export async function GET(req: NextRequest) {
 
          // Calculate the width and height of each ticket in the grid
          const ticketWidth = 35; // Adjust based on your layout
-         const ticketHeight = 55; // Adjust based on your layout
+         const ticketHeight = 45; // Adjust based on your layout
          const margin = 5; // Adjust based on your layout
-         const ticketsPerRow = 5;
-         const ticketsPerColumn = 7;
-         const totalTicketsPerPage = 35;
+         const ticketsPerRow = 8;
+         const ticketsPerColumn = 5;
+         const totalTicketsPerPage = 40;
 
          let index = 0
 
          for(let ticket of tickets){
-             const rowIndex = Math.floor(index / ticketsPerRow) % ticketsPerColumn; // Calculate row index
-             const columnIndex = index % ticketsPerRow; // Calculate column index     
+             const rowIndex = Math.floor(index / ticketsPerColumn) % ticketsPerRow; // Calculate row index
+             const columnIndex = index % ticketsPerColumn; // Calculate column index     
              const xPosition = 25 + margin+10 + columnIndex * (ticketWidth + margin+10);
              const yPosition = 10 + margin + rowIndex * (ticketHeight + margin);
          
