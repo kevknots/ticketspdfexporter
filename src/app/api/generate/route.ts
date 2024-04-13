@@ -75,8 +75,8 @@ export async function GET(req: NextRequest) {
          const ticketHeight = 55; // Adjust based on your layout
          const margin = 5; // Adjust based on your layout
          const ticketsPerRow = 5;
-         const ticketsPerColumn = 8;
-         const totalTicketsPerPage = 40;
+         const ticketsPerColumn = 7;
+         const totalTicketsPerPage = 35;
 
          let index = 0
 
