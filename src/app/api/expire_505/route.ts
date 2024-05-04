@@ -9,9 +9,13 @@ export async function PUT(req: NextRequest) {
      const gte = new URL(req.url).searchParams.get('gte')
 
 
-    const lteDate =  lte ? new Date(lte?.toString()) : null
+     const convertTZ = (date: string, tzString:string) => {
+        return new Date((new Date(date)).toLocaleString("en-US", {timeZone: tzString}));   
+    }
 
-    const gteDate = gte ? new Date(gte?.toString()) : null
+    const lteDate =  lte ? convertTZ(lte?.toString(),'America/New_York') : null
+
+    const gteDate = gte ? convertTZ(gte?.toString(),'America/New_York') : null
         
         console.log(lteDate, gteDate)
 
@@ -25,7 +29,7 @@ export async function PUT(req: NextRequest) {
                 }
             },
             data:{
-                status: 'active'
+                status: 'inactive'
             }
         });
 

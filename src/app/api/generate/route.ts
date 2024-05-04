@@ -32,10 +32,13 @@ export async function GET(req: NextRequest) {
      const lte = new URL(req.url).searchParams.get('lte')
      const gte = new URL(req.url).searchParams.get('gte')
 
+     const convertTZ = (date: string, tzString:string) => {
+        return new Date((new Date(date)).toLocaleString("en-US", {timeZone: tzString}));   
+    }
 
-    const lteDate =  lte ? new Date(lte?.toString()) : null
+    const lteDate =  lte ? convertTZ(lte?.toString(), 'America/New_York') : null
 
-    const gteDate = gte ? new Date(gte?.toString()) : null
+    const gteDate = gte ? convertTZ(gte?.toString(), 'America/New_York') : null
 
     // Initialize jsPDF
   const doc = new jsPDF({
