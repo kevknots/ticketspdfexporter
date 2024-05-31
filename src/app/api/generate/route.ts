@@ -34,13 +34,13 @@ export async function GET(req: NextRequest) {
      const type = new URL(req.url).searchParams.get('type')
  
     // Convert EST time to UTC time
-    // Function to convert EST date string to UTC date
-    const convertESTToUTC = (dateString: string) => {
+const convertESTToUTC = (dateString: string) => {
     // Create a Date object for the given date string in EST
     const date = new Date(dateString + ' EST');
-    // Return the UTC equivalent of this date
-    return new Date(date.toISOString());
-    };
+    // Convert EST to UTC
+    const utcMilliseconds = date.getTime() + (date.getTimezoneOffset() * 60000);
+    return new Date(utcMilliseconds);
+};
 
     const lteDate = lte ? convertESTToUTC(lte.toString()) : null;
     const gteDate = gte ? convertESTToUTC(gte.toString()) : null;
