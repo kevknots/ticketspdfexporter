@@ -59,13 +59,11 @@ export async function GET(req: NextRequest) {
 
             console.log(type)
 
-            console.log(type == 'winme')
-
-            const allWinMe = await db.tickets_winme.findMany()
-
-            console.log(allWinMe)
-
-            const tickets = type == 'winme' ?  await db.tickets_winme.findMany({
+            console.log(type === 'winme')
+            
+            let tickets = [] 
+            if(type === 'winme'){
+               tickets = await db.tickets_winme.findMany({
                 where: {
                     created_at: {
                         lte: lteDate,
@@ -83,7 +81,9 @@ export async function GET(req: NextRequest) {
                 orderBy: {
                     created_at: 'desc'                
                 }
-            }) : await db.tickets.findMany({
+             })
+            } else {
+                tickets = await db.tickets.findMany({
                 where: {
                     created_at: {
                         lte: lteDate,
@@ -102,7 +102,9 @@ export async function GET(req: NextRequest) {
                     created_at: 'desc'                
                 }
             });
-    
+            } 
+
+            console.log(tickets)
 
          // Calculate the width and height of each ticket in the grid
          const ticketWidth = 35; // Adjust based on your layout
