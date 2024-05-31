@@ -43,7 +43,12 @@ export async function GET(req: NextRequest) {
 
     // Get the time zone offset for the target time zone
     const targetTimeZoneOffset = inputDate.toLocaleString('en-US', { timeZone: targetTimeZone, timeZoneName: 'short' });
-    const [, hour, minute] = targetTimeZoneOffset.match(/([+\-]\d+):(\d+)/);
+     // Extract hour and minute from the time zone offset
+    let hour = 0, minute = 0;
+    const matchResult = targetTimeZoneOffset.match(/([+\-]\d+):(\d+)/);
+    if (matchResult) {
+        [, hour, minute] = matchResult;
+    }
     const targetTimeZoneOffsetInMinutes = (parseInt(hour, 10) * 60) + parseInt(minute, 10);
 
     // Adjust the Date object to reflect the target time zone offset
