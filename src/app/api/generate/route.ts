@@ -37,35 +37,32 @@ export async function GET(req: NextRequest) {
     console.log('gte', gte)
 
     console.log('iso', new Date(lte!).toISOString())
-    const setTimeZone = (date: Date, timeZone: string) => {
-    // Get the current date and time components
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth();
-    const day = date.getUTCDate();
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
-    const seconds = date.getUTCSeconds();
-    const milliseconds = date.getUTCMilliseconds();
+    const createAndConvertDate = (dateString: string, targetTimeZone: string) => {
+    // Create a Date object from the input string (interpreted as UTC)
+    const inputDate = new Date(dateString);
 
-    // Construct a new Date object with the same date and time components but in the specified time zone
-    const newDate = new Date(Date.UTC(year, month, day, hours, minutes, seconds, milliseconds));
+    // Get the time zone offset for the target time zone
+    const targetTimeZoneOffset = inputDate.toLocaleString('en-US', { timeZone: targetTimeZone, timeZoneName: 'short' });
+    const [, hour, minute] = targetTimeZoneOffset.match(/([+\-]\d+):(\d+)/);
+    const targetTimeZoneOffsetInMinutes = (parseInt(hour, 10) * 60) + parseInt(minute, 10);
 
-    // Get the offset of the specified time zone
-    const timeZoneOffset = newDate.toLocaleString('en-US', { timeZone, timeZoneName: 'short' });
+    // Adjust the Date object to reflect the target time zone offset
+    const dateInTargetTimeZone = new Date(inputDate.getTime() + (targetTimeZoneOffsetInMinutes * 60000));
 
-    // Extract the time zone abbreviation from the offset
-    const matchResult = timeZoneOffset.match(/([+\-]\d+):(\d+) ([A-Z]+)$/);
-    const timeZoneAbbreviation = matchResult ? matchResult[3] : '';
-
-    // Apply the time zone offset to the new Date object
-    newDate.setMinutes(newDate.getMinutes() + parseInt(timeZoneAbbreviation, 10));
-
-    return newDate;
+    return dateInTargetTimeZone;
 };
 
-    const lteDate = lte ? setTimeZone(new Date(lte.toString()), 'America/New_York') : null;
-    const gteDate = gte ? setTimeZone(new Date(gte.toString()), 'America/New_York') : null;
+    const lteDateEST = lte ? createAndConvertDate(lte.toString(), 'America/New_York') : null;
+    const gteDateEST = gte ? createAndConvertDate(gte.toString(), 'America/New_York') : null;
 
+    console.log('EST',lteDateEST)
+    console.log('EST', gteDateEST)
+
+    const utcOffset = lteDateEST.getTimezoneOffset();
+    const lteDate = new Date(lteDateEST.getTime() + (utcOffset * 60000));
+    const gteDate = new Date(gteDateEST.getTime() + (utcOffset * 60000));
+
+    
     // Initialize jsPDF
   const doc = new jsPDF({
     orientation: 'portrait',
