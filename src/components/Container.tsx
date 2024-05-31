@@ -32,9 +32,8 @@ export function Container(){
     }
     
     }
-  const convertTZ = (date: string, tzString:string) => {
-        const dateObject = new Date(date);
-        return new Date(dateObject.toLocaleString("en-US", {timeZone: tzString}));   
+  const convertTZ = (date: Date, tzString:string) => {
+        return date.toLocaleString("en-US", {timeZone: tzString});   
     }
 
     return (<>
