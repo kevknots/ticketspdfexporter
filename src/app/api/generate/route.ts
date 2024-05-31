@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     console.log('lte', lte)
     console.log('gte', gte)
 
-    console.log('iso', new Date(lte).toISOString())
+    console.log('iso', new Date(lte!).toISOString())
     const convertTZ = (date: string, tzString:string) => {
         const dateObject = new Date(date);
         return new Date(dateObject.toLocaleString("en-US", {timeZone: tzString}));   
