@@ -49,8 +49,9 @@ export async function GET(req: NextRequest) {
     compress: true
   });
 
+  const logoUrl = type==="winme" ? "https://staging.baddworldwide.com/test/uploads/header_logo_winme_8c46a2869c.webp" : "https://staging.baddworldwide.com/test/uploads/header_logo_badd_1_p_1_1_336873557e.png"
   // Load the logo image
-  const logoImage = await getImageData('https://staging.baddworldwide.com/test/uploads/badd_logo_41_gray_5_1_f3979c7d58.png');
+  const logoImage = await getImageData(logoUrl);
   const logoDataURL = `data:image/png;base64,${logoImage}`;
 
 
@@ -70,6 +71,9 @@ export async function GET(req: NextRequest) {
                     name: true,
                     phone_number: true,
                     email: true
+                },
+                orderBy: {
+                    created_at: 'desc'                
                 }
             }) : await db.tickets.findMany({
                 where: {
@@ -85,6 +89,9 @@ export async function GET(req: NextRequest) {
                     name: true,
                     phone_number: true,
                     email: true
+                },
+                orderBy: {
+                    created_at: 'desc'                
                 }
             });
     
