@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     const offsetString = (offsetHours >= 0 ? "+" : "") + offsetHours.toString().padStart(2, "0") + ":00";
 
     // Replace the 'Z' in the original date string with the timezone offset string
-    const adjustedDateString = dateString.replace('Z', offsetString);
+    const adjustedDateString = dateString.replace('Z', '0'+offsetString);
 
         console.log(adjustedDateString)
     return new Date(adjustedDateString);
