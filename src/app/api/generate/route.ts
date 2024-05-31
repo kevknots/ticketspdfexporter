@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     const date = new Date(dateString);
 
     // Check if Daylight Saving Time (DST) is in effect for the given date
-    const isDST = (date) => {
+    const isDST = (date: Date) => {
         const year = date.getFullYear();
         const dstStart = new Date(year, 2, 14); // March 14th
         const dstEnd = new Date(year, 10, 7); // November 7th
