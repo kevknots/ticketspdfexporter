@@ -34,14 +34,16 @@ export async function GET(req: NextRequest) {
      const type = new URL(req.url).searchParams.get('type')
  
     // Convert EST time to UTC time
-    const convertToUTC = (date: string, tzString: string) => {
-    const localDate = new Date(date);
-    const utcDate = new Date(localDate.toLocaleString('en-US', { timeZone: tzString }));
-    return new Date(utcDate.toISOString());
-    }
+    // Function to convert EST date string to UTC date
+    const convertESTToUTC = (dateString) => {
+    // Create a Date object for the given date string in EST
+    const date = new Date(dateString + ' EST');
+    // Return the UTC equivalent of this date
+    return new Date(date.toISOString());
+    };
 
-    const lteDate = lte ? convertToUTC(lte.toString(), 'America/New_York') : null;
-    const gteDate = gte ? convertToUTC(gte.toString(), 'America/New_York') : null;
+    const lteDate = lte ? convertESTToUTC(lte.toString()) : null;
+    const gteDate = gte ? convertESTToUTC(gte.toString()) : null;
 
     // Initialize jsPDF
   const doc = new jsPDF({
