@@ -32,6 +32,10 @@ export function Container(){
     }
     
     }
+  const convertTZ = (date: string, tzString:string) => {
+        const dateObject = new Date(date);
+        return new Date(dateObject.toLocaleString("en-US", {timeZone: tzString}));   
+    }
 
     return (<>
           <div className="px-20 py-20"><DateSelector to={to} from={from} setTo={setTo} setFrom={setFrom} /></div>
@@ -53,7 +57,7 @@ export function Container(){
              return;
             }
             setLoading(true)
-            window.location.replace(`/api/generate?lte=${to.toISOString()}&gte=${from.toISOString()}&type=${selectedType}`)
+            window.location.replace(`/api/generate?lte=${convertTZ(to)}&gte=${convertTZ(from)}&type=${selectedType}`)
             }}>Get PDF for date range</button>
             }
         { loading ? <></>
