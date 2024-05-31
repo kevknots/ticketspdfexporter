@@ -33,17 +33,12 @@ export async function GET(req: NextRequest) {
      const gte = new URL(req.url).searchParams.get('gte')
      const type = new URL(req.url).searchParams.get('type')
  
-    // Convert EST time to UTC time
-const convertESTToUTC = (dateString: string) => {
-    // Create a Date object for the given date string in EST
-    const date = new Date(dateString + ' EST');
-    // Convert EST to UTC
-    const utcMilliseconds = date.getTime() + (date.getTimezoneOffset() * 60000);
-    return new Date(utcMilliseconds);
-};
+    const convertTZ = (date: string, tzString:string) => {
+        return new Date((new Date(date)).toLocaleString("en-US", {timeZone: tzString}));   
+    }
 
-    const lteDate = lte ? convertESTToUTC(lte.toString()) : null;
-    const gteDate = gte ? convertESTToUTC(gte.toString()) : null;
+    const lteDate = lte ? convertTZ(lte.toString(), 'America/New_York') : null;
+    const gteDate = gte ? convertTZ(gte.toString(), 'America/New_York') : null;
 
     // Initialize jsPDF
   const doc = new jsPDF({
