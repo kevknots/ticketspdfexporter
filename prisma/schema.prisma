@@ -45,3 +45,120 @@ model tickets {
   @@index([custom_id], map: "index_tickets_on_custom_id")
   @@index([order_id], map: "index_tickets_on_order_id")
 }
+
+model tickets_history {
+  id                String    @id
+  name              String?   @db.VarChar
+  email             String?   @db.VarChar
+  phone_number      String?   @db.VarChar
+  ticket_number     String?   @db.VarChar
+  ticket_id         Int?
+  price             String?   @db.VarChar
+  order_id          String?   @db.VarChar
+  product_id        String?   @db.VarChar
+  address           String?   @db.VarChar
+  order_date        DateTime? @db.Date
+  order_time        DateTime? @db.Time(6)
+  order_date_time   DateTime? @db.Timestamp(6)
+  created_at        DateTime  @db.Timestamp(6)
+  updated_at        DateTime  @db.Timestamp(6)
+  first_name        String?   @db.VarChar
+  last_name         String?   @db.VarChar
+  contact_id        String?   @db.VarChar
+  variant_id        String?   @db.VarChar
+  zip               String?   @db.VarChar
+  city              String?   @db.VarChar
+  country           String?   @db.VarChar
+  state             String?   @db.VarChar
+  product_name      String?   @db.VarChar
+  status            String?   @db.VarChar
+  badd_order_id     String?   @db.VarChar
+  has_discount      Boolean?
+  total_order_price String?   @db.VarChar
+  discount_total    String?   @db.VarChar
+  custom_id         String?   @db.VarChar
+  checkout_id       String?   @db.VarChar
+
+  @@index([created_at], map: "idx_created_at_history")
+  @@index([checkout_id], map: "index_tickets_on_checkout_id_history")
+  @@index([custom_id], map: "index_tickets_on_custom_id_history")
+  @@index([order_id], map: "index_tickets_on_order_id_history")
+}
+
+model tickets_winme {
+  id                String    @id
+  name              String?   @db.VarChar
+  email             String?   @db.VarChar
+  phone_number      String?   @db.VarChar
+  ticket_number     String?   @db.VarChar
+  ticket_id         Int?
+  price             String?   @db.VarChar
+  order_id          String?   @db.VarChar
+  product_id        String?   @db.VarChar
+  address           String?   @db.VarChar
+  order_date        DateTime? @db.Date
+  order_time        DateTime? @db.Time(6)
+  order_date_time   DateTime? @db.Timestamp(6)
+  created_at        DateTime  @db.Timestamp(6)
+  updated_at        DateTime  @db.Timestamp(6)
+  first_name        String?   @db.VarChar
+  last_name         String?   @db.VarChar
+  contact_id        String?   @db.VarChar
+  variant_id        String?   @db.VarChar
+  zip               String?   @db.VarChar
+  city              String?   @db.VarChar
+  country           String?   @db.VarChar
+  state             String?   @db.VarChar
+  product_name      String?   @db.VarChar
+  status            String?   @db.VarChar
+  badd_order_id     String?   @db.VarChar
+  has_discount      Boolean?
+  total_order_price String?   @db.VarChar
+  discount_total    String?   @db.VarChar
+  custom_id         String?   @db.VarChar
+  checkout_id       String?   @db.VarChar
+
+  @@index([created_at], map: "idx_winme_created_at")
+  @@index([checkout_id], map: "index_tickets_winme_on_checkout_id")
+  @@index([custom_id], map: "index_tickets_winme_on_custom_id")
+  @@index([order_id], map: "index_tickets_winme_on_order_id")
+}
+
+model tickets_winme_history {
+  id                String    @id
+  name              String?   @db.VarChar
+  email             String?   @db.VarChar
+  phone_number      String?   @db.VarChar
+  ticket_number     String?   @db.VarChar
+  ticket_id         Int?
+  price             String?   @db.VarChar
+  order_id          String?   @db.VarChar
+  product_id        String?   @db.VarChar
+  address           String?   @db.VarChar
+  order_date        DateTime? @db.Date
+  order_time        DateTime? @db.Time(6)
+  order_date_time   DateTime? @db.Timestamp(6)
+  created_at        DateTime  @db.Timestamp(6)
+  updated_at        DateTime  @db.Timestamp(6)
+  first_name        String?   @db.VarChar
+  last_name         String?   @db.VarChar
+  contact_id        String?   @db.VarChar
+  variant_id        String?   @db.VarChar
+  zip               String?   @db.VarChar
+  city              String?   @db.VarChar
+  country           String?   @db.VarChar
+  state             String?   @db.VarChar
+  product_name      String?   @db.VarChar
+  status            String?   @db.VarChar
+  badd_order_id     String?   @db.VarChar
+  has_discount      Boolean?
+  total_order_price String?   @db.VarChar
+  discount_total    String?   @db.VarChar
+  custom_id         String?   @db.VarChar
+  checkout_id       String?   @db.VarChar
+
+  @@index([created_at], map: "idx_winme_created_at_history")
+  @@index([checkout_id], map: "index_tickets_winme_on_checkout_id_history")
+  @@index([custom_id], map: "index_tickets_winme_on_custom_id_history")
+  @@index([order_id], map: "index_tickets_winme_on_order_id_history")
+}

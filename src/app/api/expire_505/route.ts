@@ -7,6 +7,7 @@ export async function PUT(req: NextRequest) {
        
      const lte = new URL(req.url).searchParams.get('lte')
      const gte = new URL(req.url).searchParams.get('gte')
+     const type = new URL(req.url).searchParams.get('type')
 
 
      const convertTZ = (date: string, tzString:string) => {
@@ -21,7 +22,17 @@ export async function PUT(req: NextRequest) {
 
         if(lteDate && gteDate){
 
-        const ticketSearch = await db.tickets.updateMany({
+        const ticketSearch = type === "winme" ? await db.tickets_winme.updateMany({
+            where: {
+                created_at: {
+                    lte: lteDate,
+                    gte: gteDate
+                }
+            },
+            data:{
+                status: 'inactive'
+            }
+        }) : await db.tickets.updateMany({
             where: {
                 created_at: {
                     lte: lteDate,

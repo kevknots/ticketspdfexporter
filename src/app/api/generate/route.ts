@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
 
      const lte = new URL(req.url).searchParams.get('lte')
      const gte = new URL(req.url).searchParams.get('gte')
-
+     const type = new URL(req.url).searchParams.get('type')
+ 
      const convertTZ = (date: string, tzString:string) => {
         return new Date((new Date(date)).toLocaleString("en-US", {timeZone: tzString}));   
     }
@@ -55,7 +56,22 @@ export async function GET(req: NextRequest) {
 
         if(lteDate && gteDate){
         
-            const tickets = await db.tickets.findMany({
+            const tickets = type === 'winme' ?  await db.tickets_winme.findMany({
+                where: {
+                    created_at: {
+                        lte: lteDate,
+                        gte: gteDate
+                    },
+                    status: 'active'
+                },
+                select: {
+                    ticket_number: true,
+                    product_id: true,
+                    name: true,
+                    phone_number: true,
+                    email: true
+                }
+            }) : await db.tickets.findMany({
                 where: {
                     created_at: {
                         lte: lteDate,
@@ -127,17 +143,5 @@ export async function GET(req: NextRequest) {
                 }
             })
         }
-  /*
-  const browser = await getBrowser();
-
-  const page = await browser.newPage();
-
-  const html = generateTicketsPDFHtml(ticketSearch)
-
-  await page.setContent(html);
-
-  const pdf = await page.pdf({format: 'A3'});
-
-  await browser.close();*/
 
 }
