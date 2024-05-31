@@ -54,9 +54,10 @@ export async function GET(req: NextRequest) {
     // Determine the timezone offset
     const offsetHours = isDST(date) ? -4 : -5; // Eastern Daylight Time (EDT) or Eastern Standard Time (EST)
 
-    // Format the timezone offset string
-    const offsetString = (offsetHours >= 0 ? "+" : "") + offsetHours.toString().padStart(2, "0") + ":00";
-
+    // Format the timezone offset string with leading zeros and colon
+    const offsetSign = offsetHours >= 0 ? "+" : "-";
+    const absoluteOffsetHours = Math.abs(offsetHours).toString().padStart(2, '0');
+    const offsetString = `${offsetSign}${absoluteOffsetHours}:00`;
     // Replace the 'Z' in the original date string with the timezone offset string
     const adjustedDateString = dateString.replace('Z', offsetString);
 
