@@ -37,13 +37,31 @@ export async function GET(req: NextRequest) {
     console.log('gte', gte)
 
     console.log('iso', new Date(lte!).toISOString())
-    const convertTZ = (date: string, tzString:string) => {
-        const dateObject = new Date(date);
-        return new Date(dateObject.toLocaleString("en-US", {timeZone: tzString}));   
-    }
+    const setTimeZone = (date: Date, timeZone: string) => {
+    // Get the current date and time components
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    const hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes();
+    const seconds = date.getUTCSeconds();
+    const milliseconds = date.getUTCMilliseconds();
 
-    const lteDate = lte ? convertTZ(lte.toString(), 'America/New_York') : null;
-    const gteDate = gte ? convertTZ(gte.toString(), 'America/New_York') : null;
+    // Construct a new Date object with the same date and time components but in the specified time zone
+    const newDate = new Date(Date.UTC(year, month, day, hours, minutes, seconds, milliseconds));
+
+    // Get the offset of the specified time zone
+    const timeZoneOffset = newDate.toLocaleString('en-US', { timeZone, timeZoneName: 'short' });
+    const [ , , timeZoneAbbreviation ] = timeZoneOffset.match(/([+\-]\d+):(\d+) ([A-Z]+)$/);
+
+    // Apply the time zone offset to the new Date object
+    newDate.setMinutes(newDate.getMinutes() + parseInt(timeZoneAbbreviation, 10));
+
+    return newDate;
+};
+
+    const lteDate = lte ? setTimeZone(new Date(lte.toString()), 'America/New_York') : null;
+    const gteDate = gte ? setTimeZone(new Date(gte.toString()), 'America/New_York') : null;
 
     // Initialize jsPDF
   const doc = new jsPDF({
