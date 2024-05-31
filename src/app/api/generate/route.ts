@@ -64,6 +64,10 @@ export async function GET(req: NextRequest) {
     console.log('EST',lteDateEST)
     console.log('EST', gteDateEST)
 
+    if(!lteDateEST || !gteDateEST){
+    return new Response('no valid date range provided!')
+    }
+
     const utcOffset = lteDateEST?.getTimezoneOffset();
     const lteDate = new Date(lteDateEST?.getTime() + (utcOffset * 60000));
     const gteDate = new Date(gteDateEST?.getTime() + (utcOffset * 60000));
