@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     console.log('gte', gte)
 
     console.log('iso', new Date(lte!).toISOString())
-    const setTimeZone = (date, timeZone) => {
+    const setTimeZone = (date: Date, timeZone: string) => {
     // Get the current date and time components
     const year = date.getUTCFullYear();
     const month = date.getUTCMonth();
