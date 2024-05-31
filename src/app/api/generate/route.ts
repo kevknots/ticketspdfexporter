@@ -47,7 +47,8 @@ export async function GET(req: NextRequest) {
     let hour = 0, minute = 0;
     const matchResult = targetTimeZoneOffset.match(/([+\-]\d+):(\d+)/);
     if (matchResult) {
-        [, hour, minute] = matchResult;
+    hour = parseInt(matchResult[1], 10);
+    minute = parseInt(matchResult[2], 10);
     }
     const targetTimeZoneOffsetInMinutes = (parseInt(hour, 10) * 60) + parseInt(minute, 10);
 
