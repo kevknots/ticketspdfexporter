@@ -41,19 +41,27 @@ export function Container(){
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
             >
-                <option value="">Select Type</option>
+                <option value="">Select Tickets Type</option>
                 <option value="badd">BADD</option>
                 <option value="winme">WINME</option>
             </select>
 
          { loading ? <CircularProgress isIndeterminate color='green.300' />
          : <button className="mt-4 mb-4 px-4 py-4 bg-teal-200 rounded-lg hover:shadow-lg" onClick={()=>{
+            if(selectedType === ''){
+             alert("Select tickets type first!")
+             return;
+            }
             setLoading(true)
             window.location.replace(`/api/generate?lte=${to.toISOString()}&gte=${from.toISOString()}&type=${selectedType}`)
             }}>Get PDF for date range</button>
             }
         { loading ? <></>
          : <button className="mt-4 mb-4 px-4 py-4 bg-red-200 rounded-lg hover:shadow-lg" onClick={async()=>{
+            if(selectedType === ''){
+             alert("Select tickets type first!")
+             return;
+            }
             setLoading(true)
             await expireTickets(selectedType)
             }}>Expire tickets within date range</button>
