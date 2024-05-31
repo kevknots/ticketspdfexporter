@@ -60,6 +60,26 @@ export async function GET(req: NextRequest) {
             console.log(type)
 
             console.log(type === 'winme')
+
+            console.log( await db.tickets_winme.findMany({
+                where: {
+                    created_at: {
+                        lte: lteDate,
+                        gte: gteDate
+                    },
+                    status: 'active'
+                },
+                select: {
+                    ticket_number: true,
+                    product_id: true,
+                    name: true,
+                    phone_number: true,
+                    email: true
+                },
+                orderBy: {
+                    created_at: 'desc'                
+                }
+             }))
             
             let tickets = [] 
             if(type === 'winme'){
