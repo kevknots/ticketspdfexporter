@@ -57,7 +57,7 @@ export function Container(){
              return;
             }
             setLoading(true)
-            window.location.replace(`/api/generate?lte=${convertTZ(to)}&gte=${convertTZ(from)}&type=${selectedType}`)
+            window.location.replace(`/api/generate?lte=${convertTZ(to,'America/New_York')}&gte=${convertTZ(from,'America/New_York')}&type=${selectedType}`)
             }}>Get PDF for date range</button>
             }
         { loading ? <></>
