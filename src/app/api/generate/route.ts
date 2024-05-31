@@ -59,9 +59,12 @@ export async function GET(req: NextRequest) {
 
             console.log(type)
 
-            console.log(type === 'winme')
+            console.log(lteDate)
 
-            console.log( await db.tickets_winme.findMany({
+            console.log(gteDate)
+
+            console.log(type === 'winme')
+            const winmetickets = await db.tickets_winme.findMany({
                 where: {
                     created_at: {
                         lte: lteDate,
@@ -79,7 +82,9 @@ export async function GET(req: NextRequest) {
                 orderBy: {
                     created_at: 'desc'                
                 }
-             }))
+             })
+            
+            console.log(winmetickets)
             
             let tickets = [] 
             if(type === 'winme'){
