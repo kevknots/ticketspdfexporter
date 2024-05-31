@@ -37,29 +37,34 @@ export async function GET(req: NextRequest) {
     console.log('gte', gte)
 
     console.log('iso', new Date(lte!).toISOString())
-    const createAndConvertDate = (dateString: string, targetTimeZone: string) => {
-    // Create a Date object from the input string (interpreted as UTC)
-    const inputDate = new Date(dateString);
+    const adjustTimezoneOffset = (dateString: string) => {
+    // Parse the input date string
+    const date = new Date(dateString);
 
-    // Get the time zone offset for the target time zone
-    const targetTimeZoneOffset = inputDate.toLocaleString('en-US', { timeZone: targetTimeZone, timeZoneName: 'short' });
-     // Extract hour and minute from the time zone offset
-    let hour = '0', minute = '0'; // Initialize as strings
-    const matchResult = targetTimeZoneOffset.match(/([+\-]\d+):(\d+)/);
-    if (matchResult) {
-    hour = matchResult[1];
-    minute = matchResult[2];
-    }
-    const targetTimeZoneOffsetInMinutes = (parseInt(hour, 10) * 60) + parseInt(minute, 10);
+    // Check if Daylight Saving Time (DST) is in effect for the given date
+    const isDST = (date) => {
+        const year = date.getFullYear();
+        const dstStart = new Date(year, 2, 14); // March 14th
+        const dstEnd = new Date(year, 10, 7); // November 7th
+        dstStart.setDate(14 - dstStart.getDay()); // Previous Sunday of March 14th
+        dstEnd.setDate(7 - dstEnd.getDay()); // Previous Sunday of November 7th
+        return date >= dstStart && date < dstEnd;
+    };
 
-    // Adjust the Date object to reflect the target time zone offset
-    const dateInTargetTimeZone = new Date(inputDate.getTime() + (targetTimeZoneOffsetInMinutes * 60000));
+    // Determine the timezone offset
+    const offsetHours = isDST(date) ? -4 : -5; // Eastern Daylight Time (EDT) or Eastern Standard Time (EST)
 
-    return dateInTargetTimeZone;
+    // Format the timezone offset string
+    const offsetString = (offsetHours >= 0 ? "+" : "") + offsetHours.toString().padStart(2, "0") + ":00";
+
+    // Replace the 'Z' in the original date string with the timezone offset string
+    const adjustedDateString = dateString.replace('Z', offsetString);
+
+    return new Date(adjustedDateString);
 };
 
-    const lteDateEST = lte ? createAndConvertDate(lte.toString(), 'America/New_York') : null;
-    const gteDateEST = gte ? createAndConvertDate(gte.toString(), 'America/New_York') : null;
+    const lteDateEST = lte ? adjustTimezoneOffset(lte.toString()) : null;
+    const gteDateEST = gte ? adjustTimezoneOffset(gte.toString()) : null;
 
     console.log('EST',lteDateEST)
     console.log('EST', gteDateEST)
