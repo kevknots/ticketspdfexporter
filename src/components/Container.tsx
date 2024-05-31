@@ -53,7 +53,7 @@ export function Container(){
              return;
             }
             setLoading(true)
-            window.location.replace(`/api/generate?lte=${to}&gte=${from}&type=${selectedType}`)
+            window.location.replace(`/api/generate?lte=${to.toISOString()}&gte=${from.toISOString()}&type=${selectedType}`)
             }}>Get PDF for date range</button>
             }
         { loading ? <></>
