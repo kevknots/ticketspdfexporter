@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     compress: true
   });
 
-  const logoUrl = type==="winme" ? "https://staging.baddworldwide.com/test/uploads/header_logo_winme_8c46a2869c.webp" : "https://staging.baddworldwide.com/test/uploads/header_logo_badd_1_p_1_1_336873557e.png"
+  const logoUrl = type==="winme" ? "https://staging.baddworldwide.com/test/uploads/winme_1_7ca7a7ffc2.webp" : "https://staging.baddworldwide.com/test/uploads/header_logo_badd_1_p_1_1_336873557e.png"
   // Load the logo image
   const logoImage = await getImageData(logoUrl);
   const logoDataURL = `data:image/png;base64,${logoImage}`;
