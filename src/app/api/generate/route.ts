@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
      const type = new URL(req.url).searchParams.get('type')
  
     // Convert EST time to UTC time
-    const convertToUTC = (date, tzString) => {
+    const convertToUTC = (date: string, tzString: string) => {
     const localDate = new Date(date);
     const utcDate = new Date(localDate.toLocaleString('en-US', { timeZone: tzString }));
     return new Date(utcDate.toISOString());
