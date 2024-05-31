@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     console.log('gte', gte)
 
     console.log('iso', new Date(lte!).toISOString())
-    const setTimeZone = (date: Date, timeZone: string) => {
+    const setTimeZone = (date, timeZone) => {
     // Get the current date and time components
     const year = date.getUTCFullYear();
     const month = date.getUTCMonth();
@@ -52,7 +52,10 @@ export async function GET(req: NextRequest) {
 
     // Get the offset of the specified time zone
     const timeZoneOffset = newDate.toLocaleString('en-US', { timeZone, timeZoneName: 'short' });
-    const [ , , timeZoneAbbreviation ] = timeZoneOffset.match(/([+\-]\d+):(\d+) ([A-Z]+)$/);
+
+    // Extract the time zone abbreviation from the offset
+    const matchResult = timeZoneOffset.match(/([+\-]\d+):(\d+) ([A-Z]+)$/);
+    const timeZoneAbbreviation = matchResult ? matchResult[3] : '';
 
     // Apply the time zone offset to the new Date object
     newDate.setMinutes(newDate.getMinutes() + parseInt(timeZoneAbbreviation, 10));
