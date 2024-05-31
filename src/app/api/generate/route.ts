@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
  
     // Convert EST time to UTC time
     // Function to convert EST date string to UTC date
-    const convertESTToUTC = (dateString) => {
+    const convertESTToUTC = (dateString: string) => {
     // Create a Date object for the given date string in EST
     const date = new Date(dateString + ' EST');
     // Return the UTC equivalent of this date
