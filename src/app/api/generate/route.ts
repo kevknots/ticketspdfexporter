@@ -56,7 +56,9 @@ export async function GET(req: NextRequest) {
 
 
         if(lteDate && gteDate){
-        
+
+            console.log(type)
+
             const tickets = type === 'winme' ?  await db.tickets_winme.findMany({
                 where: {
                     created_at: {
