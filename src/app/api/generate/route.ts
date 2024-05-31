@@ -32,7 +32,11 @@ export async function GET(req: NextRequest) {
      const lte = new URL(req.url).searchParams.get('lte')
      const gte = new URL(req.url).searchParams.get('gte')
      const type = new URL(req.url).searchParams.get('type')
- 
+
+    console.log('lte', lte)
+    console.log('gte', gte)
+
+    console.log('iso', lte.toISOString())
     const convertTZ = (date: string, tzString:string) => {
         const dateObject = new Date(date);
         return new Date(dateObject.toLocaleString("en-US", {timeZone: tzString}));   
