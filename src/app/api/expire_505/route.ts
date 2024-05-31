@@ -10,14 +10,16 @@ export async function PUT(req: NextRequest) {
      const type = new URL(req.url).searchParams.get('type')
 
 
-     const convertTZ = (date: string, tzString:string) => {
-        return new Date((new Date(date)).toLocaleString("en-US", {timeZone: tzString}));   
+         // Convert EST time to UTC time
+    const convertToUTC = (date, tzString) => {
+    const localDate = new Date(date);
+    const utcDate = new Date(localDate.toLocaleString('en-US', { timeZone: tzString }));
+    return new Date(utcDate.toISOString());
     }
 
-    const lteDate =  lte ? convertTZ(lte?.toString(),'America/New_York') : null
+    const lteDate = lte ? convertToUTC(lte.toString(), 'America/New_York') : null;
+    const gteDate = gte ? convertToUTC(gte.toString(), 'America/New_York') : null;
 
-    const gteDate = gte ? convertTZ(gte?.toString(),'America/New_York') : null
-        
         console.log(lteDate, gteDate)
 
         if(lteDate && gteDate){
