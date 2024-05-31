@@ -37,7 +37,7 @@ export function Container(){
           <div className="px-20 py-20"><DateSelector to={to} from={from} setTo={setTo} setFrom={setFrom} /></div>
           
           <select 
-                className="mt-4 mb-4 px-8 py-8 bg-blue-200 rounded-lg hover:shadow-lg"
+                className="mt-4 mb-4 px-4 py-4 bg-blue-200 rounded-lg hover:shadow-lg"
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
             >
@@ -47,13 +47,13 @@ export function Container(){
             </select>
 
          { loading ? <CircularProgress isIndeterminate color='green.300' />
-         : <button className="px-8 py-8 bg-teal-200 rounded-lg hover:shadow-lg" onClick={()=>{
+         : <button className="mt-4 mb-4 px-4 py-4 bg-teal-200 rounded-lg hover:shadow-lg" onClick={()=>{
             setLoading(true)
             window.location.replace(`/api/generate?lte=${to.toISOString()}&gte=${from.toISOString()}&type=${selectedType}`)
             }}>Get PDF for date range</button>
             }
         { loading ? <></>
-         : <button className="px-8 py-8 bg-red-200 rounded-lg hover:shadow-lg" onClick={async()=>{
+         : <button className="mt-4 mb-4 px-4 py-4 bg-red-200 rounded-lg hover:shadow-lg" onClick={async()=>{
             setLoading(true)
             await expireTickets(selectedType)
             }}>Expire tickets within date range</button>
