@@ -69,6 +69,9 @@ export async function GET(req: NextRequest) {
     }
 
     const utcOffset = lteDateEST?.getTimezoneOffset();
+
+    console.log(utcOffset)
+    
     const lteDate = new Date(lteDateEST?.getTime() + (utcOffset * 60000));
     const gteDate = new Date(gteDateEST?.getTime() + (utcOffset * 60000));
 
