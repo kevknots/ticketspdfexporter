@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
      const type = new URL(req.url).searchParams.get('type')
  
     const convertTZ = (date: string, tzString:string) => {
-        const dateObject = new Date(dateString);
+        const dateObject = new Date(date);
         return new Date(dateObject.toLocaleString("en-US", {timeZone: tzString}));   
     }
 
