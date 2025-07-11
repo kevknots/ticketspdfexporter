@@ -28,9 +28,7 @@ export function DateSelector({to, from, setTo, setFrom}: DateSelectorProps) {
                     dateFormat="MMMM d, yyyy h:mm aa"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholderText="Select start date and time"
-                    maxDate={new Date()} // Can't select future dates
-                    // 🔧 Configure for EST timezone
-                    timeZone="America/New_York"
+                    maxDate={new Date()}
                 />
                 <p className="text-xs text-gray-500">
                     Selected: {from.toLocaleString("en-US", {timeZone: "America/New_York"})} EST
@@ -52,10 +50,8 @@ export function DateSelector({to, from, setTo, setFrom}: DateSelectorProps) {
                     dateFormat="MMMM d, yyyy h:mm aa"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholderText="Select end date and time"
-                    minDate={from} // End date can't be before start date
-                    maxDate={new Date()} // Can't select future dates
-                    // 🔧 Configure for EST timezone
-                    timeZone="America/New_York"
+                    minDate={from}
+                    maxDate={new Date()}
                 />
                 <p className="text-xs text-gray-500">
                     Selected: {to.toLocaleString("en-US", {timeZone: "America/New_York"})} EST
