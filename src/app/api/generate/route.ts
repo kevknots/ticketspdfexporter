@@ -22,25 +22,6 @@ function formatPhoneNumber(phoneNumberString: string) {
   return null;
 }
 
-// 🔧 FIXED: Simplified EST timezone conversion
-const convertToEST = (dateString: string): Date => {
-  const date = new Date(dateString);
-  
-  // Convert to EST (UTC-5) or EDT (UTC-4) based on DST
-  const year = date.getFullYear();
-  const dstStart = new Date(year, 2, 14 - new Date(year, 2, 14).getDay()); // 2nd Sunday in March
-  const dstEnd = new Date(year, 10, 7 - new Date(year, 10, 7).getDay());   // 1st Sunday in November
-  
-  const isDST = date >= dstStart && date < dstEnd;
-  const offsetHours = isDST ? -4 : -5; // EDT or EST
-  
-  // Apply the offset
-  const estDate = new Date(date.getTime() + (offsetHours * 60 * 60 * 1000));
-  
-  console.log(`Original: ${dateString}, EST: ${estDate.toISOString()}`);
-  return estDate;
-};
-
 export const maxDuration = 300
 
 export async function GET(req: NextRequest) {
@@ -54,11 +35,16 @@ export async function GET(req: NextRequest) {
         return new Response('No valid date range provided!', { status: 400 });
     }
 
-    // 🔧 FIXED: Simple EST conversion
-    const lteEST = convertToEST(lte);
-    const gteEST = convertToEST(gte);
+    // 🔧 FIXED: Use dates directly (already converted by browser)
+    const lteDate = new Date(lte);
+    const gteDate = new Date(gte);
 
-    console.log('EST Date range:', { lteEST, gteEST });
+    console.log('Database query range:', { 
+        from: gteDate.toISOString(), 
+        to: lteDate.toISOString(),
+        fromLocal: gteDate.toLocaleString("en-US", {timeZone: "America/New_York"}),
+        toLocal: lteDate.toLocaleString("en-US", {timeZone: "America/New_York"})
+    });
     
     // Initialize jsPDF with better dimensions for ticket layout
     const doc = new jsPDF({
@@ -76,14 +62,17 @@ export async function GET(req: NextRequest) {
     const logoImage = await getImageData(logoUrl);
     const logoDataURL = `data:image/png;base64,${logoImage}`;
 
-    // Fetch tickets based on type
+    // Fetch tickets based on type with debugging
     let tickets = [];
+    
+    console.log(`Querying ${type} tickets between ${gteDate.toISOString()} and ${lteDate.toISOString()}`);
+    
     if (type === 'winme') {
         tickets = await db.tickets_winme.findMany({
             where: {
                 created_at: {
-                    lte: lteEST,
-                    gte: gteEST
+                    lte: lteDate,
+                    gte: gteDate
                 },
                 status: 'active'
             },
@@ -93,7 +82,8 @@ export async function GET(req: NextRequest) {
                 first_name: true,
                 last_name: true,
                 phone_number: true,
-                email: true
+                email: true,
+                created_at: true
             },
             orderBy: {
                 created_at: 'desc'                
@@ -103,8 +93,8 @@ export async function GET(req: NextRequest) {
         tickets = await db.tickets.findMany({
             where: {
                 created_at: {
-                    lte: lteEST,
-                    gte: gteEST
+                    lte: lteDate,
+                    gte: gteDate
                 },
                 status: 'active'
             },
@@ -114,7 +104,8 @@ export async function GET(req: NextRequest) {
                 first_name: true,
                 last_name: true,
                 phone_number: true,
-                email: true
+                email: true,
+                created_at: true
             },
             orderBy: {
                 created_at: 'desc'                
@@ -122,7 +113,29 @@ export async function GET(req: NextRequest) {
         });
     }
 
-    console.log(`Found ${tickets.length} tickets to export`);
+    console.log(`Found ${tickets.length} tickets`);
+    if (tickets.length > 0) {
+        console.log('Sample tickets:', tickets.slice(0, 3).map(t => ({
+            ticket_number: t.ticket_number,
+            created_at: t.created_at,
+            name: `${t.first_name} ${t.last_name}`
+        })));
+    }
+
+    // 🔧 DEBUG: Show recent tickets regardless of date range
+    const recentTickets = await db.tickets.findMany({
+        take: 5,
+        select: {
+            ticket_number: true,
+            created_at: true,
+            first_name: true,
+            last_name: true
+        },
+        orderBy: {
+            created_at: 'desc'
+        }
+    });
+    console.log('5 most recent tickets in database:', recentTickets);
 
     if (tickets.length === 0) {
         return new Response('No tickets found for the specified date range!', { status: 404 });
@@ -159,37 +172,42 @@ export async function GET(req: NextRequest) {
 
         console.log(`Ticket ${index}: Row ${row}, Col ${col}, Position (${xPosition}, ${yPosition})`);
 
-        // 🔧 IMPROVED: Better ticket layout
-        // Draw ticket border (optional - for debugging)
+        // 🔧 IMPROVED: Better ticket layout with fixed logo position
+        // Draw ticket border for debugging (uncomment to see boundaries)
         // doc.rect(xPosition, yPosition, ticketWidth, ticketHeight);
 
-        // Add logo image (smaller and better positioned)
-        doc.addImage(logoDataURL, 'PNG', xPosition + 2, yPosition + 2, 20, 8, undefined, 'FAST');
+        // 🔧 FIXED: Centered logo position
+        const logoWidth = 20;
+        const logoHeight = 8;
+        const logoX = xPosition + (ticketWidth - logoWidth) / 2; // Center horizontally
+        const logoY = yPosition + 2;
+        
+        doc.addImage(logoDataURL, 'PNG', logoX, logoY, logoWidth, logoHeight, undefined, 'FAST');
 
-        // Add ticket number (prominent)
-        doc.setFontSize(12).setFont('Helvetica', 'bold');
-        doc.text(ticket.ticket_number ?? '', xPosition + ticketWidth/2, yPosition + 15, {align: 'center'});
+        // Add ticket number (prominent, moved down to avoid overlap)
+        doc.setFontSize(11).setFont('Helvetica', 'bold');
+        doc.text(ticket.ticket_number ?? '', xPosition + ticketWidth/2, yPosition + 16, {align: 'center'});
 
         // Add customer name
         doc.setFontSize(9).setFont('Helvetica', 'bold');
         const customerName = `${ticket.first_name || ''} ${ticket.last_name || ''}`.trim();
         if (customerName) {
             const wrappedNameText = doc.splitTextToSize(customerName, ticketWidth - 4);
-            doc.text(wrappedNameText, xPosition + ticketWidth/2, yPosition + 20, {align: 'center'});
+            doc.text(wrappedNameText, xPosition + ticketWidth/2, yPosition + 22, {align: 'center'});
         }
 
         // Add phone number
         doc.setFontSize(8).setFont('Helvetica', 'normal');
         const formattedPhone = formatPhoneNumber(ticket.phone_number ?? '') || ticket.phone_number;
         if (formattedPhone) {
-            doc.text(formattedPhone, xPosition + ticketWidth/2, yPosition + 26, {align: 'center'});
+            doc.text(formattedPhone, xPosition + ticketWidth/2, yPosition + 28, {align: 'center'});
         }
 
         // Add email (smaller font, wrapped)
         doc.setFontSize(7);
         if (ticket.email) {
             const wrappedEmailText = doc.splitTextToSize(ticket.email, ticketWidth - 4);
-            doc.text(wrappedEmailText, xPosition + ticketWidth/2, yPosition + 30, {align: 'center'});
+            doc.text(wrappedEmailText, xPosition + ticketWidth/2, yPosition + 33, {align: 'center'});
         }
     }
 
@@ -199,7 +217,7 @@ export async function GET(req: NextRequest) {
     return new Response(Buffer.from(pdfBuffer), {
         headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `inline; filename=${type}-tickets-${gteEST.toISOString().split('T')[0]}-to-${lteEST.toISOString().split('T')[0]}.pdf`
+            'Content-Disposition': `inline; filename=${type}-tickets-${gteDate.toISOString().split('T')[0]}-to-${lteDate.toISOString().split('T')[0]}.pdf`
         }
     });
 }
