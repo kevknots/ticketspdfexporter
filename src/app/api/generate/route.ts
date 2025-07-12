@@ -212,35 +212,44 @@ export async function GET(req: NextRequest) {
             doc.text(wrappedNameText, xPosition + ticketWidth/2, yPosition + 25, {align: 'center'});
         }
 
-        // Phone number with comfortable spacing
+        // 🔧 FIXED: Better phone number detection and positioning
         doc.setFontSize(8).setFont('Helvetica', 'normal');
-        let phoneNumber = ticket.phone_number;
+        let phoneNumber = '';
         
-        if (!phoneNumber && ticket.contact_id) {
+        // Try multiple fields for phone number
+        if (ticket.phone_number) {
+            phoneNumber = ticket.phone_number;
+        } else if (ticket.contact_id) {
             const contactId = String(ticket.contact_id);
-            if (/^\d{10,}$/.test(contactId.replace(/\D/g, ''))) {
+            // Check if contact_id looks like a phone number (10+ digits)
+            const phoneDigits = contactId.replace(/\D/g, '');
+            if (phoneDigits.length >= 10 && !contactId.includes('@')) {
                 phoneNumber = contactId;
             }
         }
         
+        console.log(`🔍 Ticket ${ticket.ticket_number}: phone_number='${ticket.phone_number}', contact_id='${ticket.contact_id}', detected phone='${phoneNumber}'`);
+        
         if (phoneNumber) {
             const formattedPhone = formatPhoneNumber(phoneNumber) || phoneNumber;
             doc.text(formattedPhone, xPosition + ticketWidth/2, yPosition + 32, {align: 'center'});
+        } else {
+            // Show placeholder if no phone found
+            doc.setFontSize(7).setFont('Helvetica', 'italic');
+            doc.text('No phone', xPosition + ticketWidth/2, yPosition + 32, {align: 'center'});
         }
 
-        // Email with full space available
-        doc.setFontSize(7);
-        let emailAddress = ticket.email;
+        // 🔧 FIXED: Email positioning (only show if different from phone)
+        doc.setFontSize(7).setFont('Helvetica', 'normal');
+        let emailAddress = '';
         
-        if (!emailAddress && ticket.contact_id) {
-            const contactId = String(ticket.contact_id);
-            if (contactId.includes('@')) {
-                emailAddress = contactId;
-            }
+        if (ticket.email) {
+            emailAddress = ticket.email;
+        } else if (ticket.contact_id && ticket.contact_id.includes('@')) {
+            emailAddress = ticket.contact_id;
         }
         
-        if (emailAddress) {
-            // With A3 space, we can show longer emails
+        if (emailAddress && emailAddress !== phoneNumber) {
             const wrappedEmailText = doc.splitTextToSize(emailAddress, ticketWidth - 4);
             doc.text(wrappedEmailText, xPosition + ticketWidth/2, yPosition + 38, {align: 'center'});
         }
