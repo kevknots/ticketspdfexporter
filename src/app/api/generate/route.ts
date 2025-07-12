@@ -83,7 +83,10 @@ export async function GET(req: NextRequest) {
                 last_name: true,
                 phone_number: true,
                 email: true,
-                created_at: true
+                created_at: true,
+                // 🔧 FIXED: Include all possible contact fields
+                contact_id: true,
+                name: true // Old format uses this field
             },
             orderBy: {
                 created_at: 'desc'                
@@ -105,7 +108,10 @@ export async function GET(req: NextRequest) {
                 last_name: true,
                 phone_number: true,
                 email: true,
-                created_at: true
+                created_at: true,
+                // 🔧 FIXED: Include all possible contact fields
+                contact_id: true,
+                name: true // Old format uses this field
             },
             orderBy: {
                 created_at: 'desc'                
@@ -141,18 +147,18 @@ export async function GET(req: NextRequest) {
         return new Response('No tickets found for the specified date range!', { status: 404 });
     }
 
-    // 🔧 FIXED: Proper grid layout calculations
-    const ticketWidth = 50;   // Width of each ticket
-    const ticketHeight = 40;  // Height of each ticket  
-    const marginX = 5;        // Horizontal margin between tickets
-    const marginY = 5;        // Vertical margin between tickets
-    const startX = 10;        // Left margin of page
-    const startY = 10;        // Top margin of page
+    // 🔧 FIXED: Better grid layout to prevent overflow
+    const ticketWidth = 55;   // Slightly wider
+    const ticketHeight = 50;  // Taller to fit all content
+    const marginX = 3;        // Smaller horizontal margin
+    const marginY = 3;        // Smaller vertical margin  
+    const startX = 5;         // Smaller left margin
+    const startY = 5;         // Smaller top margin
     
-    // Grid configuration for landscape A4
+    // Grid configuration for landscape A4 (297mm x 210mm)
     const ticketsPerRow = 5;     // 5 tickets horizontally
-    const ticketsPerColumn = 6;  // 6 tickets vertically
-    const totalTicketsPerPage = ticketsPerRow * ticketsPerColumn; // 30 tickets per page
+    const ticketsPerColumn = 4;  // 🔧 REDUCED to 4 rows to prevent overflow
+    const totalTicketsPerPage = ticketsPerRow * ticketsPerColumn; // 20 tickets per page
 
     for (let index = 0; index < tickets.length; index++) {
         const ticket = tickets[index];
@@ -172,7 +178,7 @@ export async function GET(req: NextRequest) {
 
         console.log(`Ticket ${index}: Row ${row}, Col ${col}, Position (${xPosition}, ${yPosition})`);
 
-        // 🔧 IMPROVED: Better ticket layout with fixed logo position
+        // 🔧 IMPROVED: Better ticket layout with proper data handling
         // Draw ticket border for debugging (uncomment to see boundaries)
         // doc.rect(xPosition, yPosition, ticketWidth, ticketHeight);
 
@@ -185,29 +191,70 @@ export async function GET(req: NextRequest) {
         doc.addImage(logoDataURL, 'PNG', logoX, logoY, logoWidth, logoHeight, undefined, 'FAST');
 
         // Add ticket number (prominent, moved down to avoid overlap)
-        doc.setFontSize(11).setFont('Helvetica', 'bold');
-        doc.text(ticket.ticket_number ?? '', xPosition + ticketWidth/2, yPosition + 16, {align: 'center'});
+        doc.setFontSize(10).setFont('Helvetica', 'bold');
+        doc.text(ticket.ticket_number ?? '', xPosition + ticketWidth/2, yPosition + 15, {align: 'center'});
 
-        // Add customer name
-        doc.setFontSize(9).setFont('Helvetica', 'bold');
-        const customerName = `${ticket.first_name || ''} ${ticket.last_name || ''}`.trim();
+        // 🔧 FIXED: Better customer name handling for both old and new formats
+        doc.setFontSize(8).setFont('Helvetica', 'bold');
+        let customerName = '';
+        
+        // Try different name fields (old vs new format)
+        if (ticket.first_name || ticket.last_name) {
+            customerName = `${ticket.first_name || ''} ${ticket.last_name || ''}`.trim();
+        } else if (ticket.name) {
+            customerName = ticket.name; // Old format uses 'name' field
+        }
+        
         if (customerName) {
             const wrappedNameText = doc.splitTextToSize(customerName, ticketWidth - 4);
             doc.text(wrappedNameText, xPosition + ticketWidth/2, yPosition + 22, {align: 'center'});
         }
 
-        // Add phone number
-        doc.setFontSize(8).setFont('Helvetica', 'normal');
-        const formattedPhone = formatPhoneNumber(ticket.phone_number ?? '') || ticket.phone_number;
-        if (formattedPhone) {
-            doc.text(formattedPhone, xPosition + ticketWidth/2, yPosition + 28, {align: 'center'});
+        // 🔧 FIXED: Better phone number handling
+        doc.setFontSize(7).setFont('Helvetica', 'normal');
+        let phoneNumber = ticket.phone_number;
+        
+        // If no phone_number, try contact_id (might contain phone for old format)
+        if (!phoneNumber && ticket.contact_id) {
+            // Check if contact_id looks like a phone number
+            const contactId = String(ticket.contact_id);
+            if (/^\d{10,}$/.test(contactId.replace(/\D/g, ''))) {
+                phoneNumber = contactId;
+            }
+        }
+        
+        if (phoneNumber) {
+            const formattedPhone = formatPhoneNumber(phoneNumber) || phoneNumber;
+            doc.text(formattedPhone, xPosition + ticketWidth/2, yPosition + 30, {align: 'center'});
         }
 
-        // Add email (smaller font, wrapped)
-        doc.setFontSize(7);
-        if (ticket.email) {
-            const wrappedEmailText = doc.splitTextToSize(ticket.email, ticketWidth - 4);
-            doc.text(wrappedEmailText, xPosition + ticketWidth/2, yPosition + 33, {align: 'center'});
+        // 🔧 FIXED: Better email handling  
+        doc.setFontSize(6);
+        let emailAddress = ticket.email;
+        
+        // If no email, try contact_id (might contain email for old format)
+        if (!emailAddress && ticket.contact_id) {
+            const contactId = String(ticket.contact_id);
+            if (contactId.includes('@')) {
+                emailAddress = contactId;
+            }
+        }
+        
+        if (emailAddress) {
+            const wrappedEmailText = doc.splitTextToSize(emailAddress, ticketWidth - 4);
+            doc.text(wrappedEmailText, xPosition + ticketWidth/2, yPosition + 36, {align: 'center'});
+        }
+
+        // 🔧 DEBUG: Log missing data
+        if (!customerName && !phoneNumber && !emailAddress) {
+            console.log(`⚠️ Ticket ${ticket.ticket_number} missing contact data:`, {
+                first_name: ticket.first_name,
+                last_name: ticket.last_name,
+                name: ticket.name,
+                phone_number: ticket.phone_number,
+                email: ticket.email,
+                contact_id: ticket.contact_id
+            });
         }
     }
 
