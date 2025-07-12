@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
                     contains: '-'
                 }
             },
-            take: 5,
+            take: 10,
             select: {
                 ticket_number: true,
                 created_at: true,
@@ -94,6 +94,20 @@ export async function GET(req: NextRequest) {
             }
         });
 
+        // 🔧 DEBUG: Check contact_id patterns
+        const contactIdAnalysis = await db.tickets.findMany({
+            take: 20,
+            select: {
+                ticket_number: true,
+                contact_id: true,
+                phone_number: true,
+                email: true
+            },
+            orderBy: {
+                created_at: 'desc'
+            }
+        });
+
         const response = {
             timestamp: new Date().toISOString(),
             summary: {
@@ -103,6 +117,18 @@ export async function GET(req: NextRequest) {
                 activeWinmeTickets,
                 newFormatTicketsCount: newFormatTickets.length
             },
+            contactIdPatterns: contactIdAnalysis.map(t => ({
+                ticket_number: t.ticket_number,
+                contact_id: t.contact_id,
+                contact_id_type: t.contact_id ? (
+                    t.contact_id.includes('@') ? 'email' : 
+                    /^\d{10,}$/.test(String(t.contact_id).replace(/\D/g, '')) ? 'phone' : 
+                    'other'
+                ) : 'null',
+                phone_number: t.phone_number,
+                email: t.email,
+                has_phone_data: !!(t.phone_number || (t.contact_id && /^\d{10,}$/.test(String(t.contact_id).replace(/\D/g, ''))))
+            })),
             recentTickets: recentTickets.map(t => ({
                 ticket_number: t.ticket_number,
                 created_at: t.created_at?.toISOString(),
