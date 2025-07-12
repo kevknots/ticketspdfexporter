@@ -176,26 +176,26 @@ export async function GET(req: NextRequest) {
         const row = Math.floor(pageIndex / ticketsPerRow);
         const col = pageIndex % ticketsPerRow;
         
-        const xPosition = startX + col * (actualTicketWidth + marginX);
-        const yPosition = startY + row * (actualTicketHeight + marginY);
+        const xPosition = startX + col * (ticketWidth + marginX);
+        const yPosition = startY + row * (ticketHeight + marginY);
 
         console.log(`Ticket ${index}: Row ${row}, Col ${col}, Position (${xPosition.toFixed(1)}, ${yPosition.toFixed(1)})`);
 
         // 🔧 IMPROVED: Better ticket layout with A3 space
         // Draw ticket border for debugging (uncomment to see boundaries)
-        // doc.rect(xPosition, yPosition, actualTicketWidth, actualTicketHeight);
+        // doc.rect(xPosition, yPosition, ticketWidth, ticketHeight);
 
         // 🔧 FIXED: Logo positioning for A3 format
         const logoWidth = 25;  // Larger logo for A3
         const logoHeight = 10; // Taller logo
-        const logoX = xPosition + (actualTicketWidth - logoWidth) / 2;
+        const logoX = xPosition + (ticketWidth - logoWidth) / 2;
         const logoY = yPosition + 3;
         
         doc.addImage(logoDataURL, 'PNG', logoX, logoY, logoWidth, logoHeight, undefined, 'FAST');
 
         // Add ticket number (larger font for A3)
         doc.setFontSize(11).setFont('Helvetica', 'bold');
-        doc.text(ticket.ticket_number ?? '', xPosition + actualTicketWidth/2, yPosition + 18, {align: 'center'});
+        doc.text(ticket.ticket_number ?? '', xPosition + ticketWidth/2, yPosition + 18, {align: 'center'});
 
         // Customer name with better spacing
         doc.setFontSize(9).setFont('Helvetica', 'bold');
@@ -208,8 +208,8 @@ export async function GET(req: NextRequest) {
         }
         
         if (customerName) {
-            const wrappedNameText = doc.splitTextToSize(customerName, actualTicketWidth - 4);
-            doc.text(wrappedNameText, xPosition + actualTicketWidth/2, yPosition + 25, {align: 'center'});
+            const wrappedNameText = doc.splitTextToSize(customerName, ticketWidth - 4);
+            doc.text(wrappedNameText, xPosition + ticketWidth/2, yPosition + 25, {align: 'center'});
         }
 
         // Phone number with comfortable spacing
@@ -225,7 +225,7 @@ export async function GET(req: NextRequest) {
         
         if (phoneNumber) {
             const formattedPhone = formatPhoneNumber(phoneNumber) || phoneNumber;
-            doc.text(formattedPhone, xPosition + actualTicketWidth/2, yPosition + 32, {align: 'center'});
+            doc.text(formattedPhone, xPosition + ticketWidth/2, yPosition + 32, {align: 'center'});
         }
 
         // Email with full space available
@@ -241,8 +241,8 @@ export async function GET(req: NextRequest) {
         
         if (emailAddress) {
             // With A3 space, we can show longer emails
-            const wrappedEmailText = doc.splitTextToSize(emailAddress, actualTicketWidth - 4);
-            doc.text(wrappedEmailText, xPosition + actualTicketWidth/2, yPosition + 38, {align: 'center'});
+            const wrappedEmailText = doc.splitTextToSize(emailAddress, ticketWidth - 4);
+            doc.text(wrappedEmailText, xPosition + ticketWidth/2, yPosition + 38, {align: 'center'});
         }
 
         // 🔧 DEBUG: Log missing data for A3 format
