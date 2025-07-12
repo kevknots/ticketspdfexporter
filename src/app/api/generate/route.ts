@@ -147,18 +147,21 @@ export async function GET(req: NextRequest) {
         return new Response('No tickets found for the specified date range!', { status: 404 });
     }
 
-    // 🔧 FIXED: Better grid layout to prevent overflow
-    const ticketWidth = 55;   // Slightly wider
-    const ticketHeight = 50;  // Taller to fit all content
-    const marginX = 3;        // Smaller horizontal margin
-    const marginY = 3;        // Smaller vertical margin  
-    const startX = 5;         // Smaller left margin
-    const startY = 5;         // Smaller top margin
+    // 🔧 FIXED: Layout optimized for 6 rows to match physical cutter
+    const ticketWidth = 55;   // Width fits 5 across with margins
+    const ticketHeight = 32;  // 🔧 REDUCED height to fit 6 rows properly
+    const marginX = 3;        // Tight horizontal margin
+    const marginY = 2;        // 🔧 REDUCED vertical margin to fit 6 rows
+    const startX = 5;         // Small left margin
+    const startY = 8;         // Small top margin
     
-    // Grid configuration for landscape A4 (297mm x 210mm)
+    // Grid configuration for landscape A4 (297mm x 210mm) with physical cutter constraints
     const ticketsPerRow = 5;     // 5 tickets horizontally
-    const ticketsPerColumn = 4;  // 🔧 REDUCED to 4 rows to prevent overflow
-    const totalTicketsPerPage = ticketsPerRow * ticketsPerColumn; // 20 tickets per page
+    const ticketsPerColumn = 6;  // 🔧 RESTORED to 6 rows for cutter compatibility
+    const totalTicketsPerPage = ticketsPerRow * ticketsPerColumn; // 30 tickets per page
+    
+    // 🔧 Calculate to ensure fit: 8 + (6 * 32) + (5 * 2) = 8 + 192 + 10 = 210mm (perfect fit)
+    console.log(`📐 Layout check: startY(${startY}) + rows(${ticketsPerColumn} * ${ticketHeight}) + margins(${ticketsPerColumn-1} * ${marginY}) = ${startY + (ticketsPerColumn * ticketHeight) + ((ticketsPerColumn-1) * marginY)}mm (A4 height: 210mm)`);
 
     for (let index = 0; index < tickets.length; index++) {
         const ticket = tickets[index];
@@ -168,55 +171,52 @@ export async function GET(req: NextRequest) {
             doc.addPage();
         }
 
-        // 🔧 FIXED: Correct grid positioning
+        // 🔧 FIXED: Correct grid positioning using calculated dimensions
         const pageIndex = index % totalTicketsPerPage;
         const row = Math.floor(pageIndex / ticketsPerRow);
         const col = pageIndex % ticketsPerRow;
         
-        const xPosition = startX + col * (ticketWidth + marginX);
-        const yPosition = startY + row * (ticketHeight + marginY);
+        const xPosition = startX + col * (actualTicketWidth + marginX);
+        const yPosition = startY + row * (actualTicketHeight + marginY);
 
-        console.log(`Ticket ${index}: Row ${row}, Col ${col}, Position (${xPosition}, ${yPosition})`);
+        console.log(`Ticket ${index}: Row ${row}, Col ${col}, Position (${xPosition.toFixed(1)}, ${yPosition.toFixed(1)})`);
 
-        // 🔧 IMPROVED: Better ticket layout with proper data handling
+        // 🔧 IMPROVED: Better ticket layout with A3 space
         // Draw ticket border for debugging (uncomment to see boundaries)
-        // doc.rect(xPosition, yPosition, ticketWidth, ticketHeight);
+        // doc.rect(xPosition, yPosition, actualTicketWidth, actualTicketHeight);
 
-        // 🔧 FIXED: Centered logo position
-        const logoWidth = 20;
-        const logoHeight = 8;
-        const logoX = xPosition + (ticketWidth - logoWidth) / 2; // Center horizontally
-        const logoY = yPosition + 2;
+        // 🔧 FIXED: Logo positioning for A3 format
+        const logoWidth = 25;  // Larger logo for A3
+        const logoHeight = 10; // Taller logo
+        const logoX = xPosition + (actualTicketWidth - logoWidth) / 2;
+        const logoY = yPosition + 3;
         
         doc.addImage(logoDataURL, 'PNG', logoX, logoY, logoWidth, logoHeight, undefined, 'FAST');
 
-        // Add ticket number (prominent, moved down to avoid overlap)
-        doc.setFontSize(10).setFont('Helvetica', 'bold');
-        doc.text(ticket.ticket_number ?? '', xPosition + ticketWidth/2, yPosition + 15, {align: 'center'});
+        // Add ticket number (larger font for A3)
+        doc.setFontSize(11).setFont('Helvetica', 'bold');
+        doc.text(ticket.ticket_number ?? '', xPosition + actualTicketWidth/2, yPosition + 18, {align: 'center'});
 
-        // 🔧 FIXED: Better customer name handling for both old and new formats
-        doc.setFontSize(8).setFont('Helvetica', 'bold');
+        // Customer name with better spacing
+        doc.setFontSize(9).setFont('Helvetica', 'bold');
         let customerName = '';
         
-        // Try different name fields (old vs new format)
         if (ticket.first_name || ticket.last_name) {
             customerName = `${ticket.first_name || ''} ${ticket.last_name || ''}`.trim();
         } else if (ticket.name) {
-            customerName = ticket.name; // Old format uses 'name' field
+            customerName = ticket.name;
         }
         
         if (customerName) {
-            const wrappedNameText = doc.splitTextToSize(customerName, ticketWidth - 4);
-            doc.text(wrappedNameText, xPosition + ticketWidth/2, yPosition + 22, {align: 'center'});
+            const wrappedNameText = doc.splitTextToSize(customerName, actualTicketWidth - 4);
+            doc.text(wrappedNameText, xPosition + actualTicketWidth/2, yPosition + 25, {align: 'center'});
         }
 
-        // 🔧 FIXED: Better phone number handling
-        doc.setFontSize(7).setFont('Helvetica', 'normal');
+        // Phone number with comfortable spacing
+        doc.setFontSize(8).setFont('Helvetica', 'normal');
         let phoneNumber = ticket.phone_number;
         
-        // If no phone_number, try contact_id (might contain phone for old format)
         if (!phoneNumber && ticket.contact_id) {
-            // Check if contact_id looks like a phone number
             const contactId = String(ticket.contact_id);
             if (/^\d{10,}$/.test(contactId.replace(/\D/g, ''))) {
                 phoneNumber = contactId;
@@ -225,14 +225,13 @@ export async function GET(req: NextRequest) {
         
         if (phoneNumber) {
             const formattedPhone = formatPhoneNumber(phoneNumber) || phoneNumber;
-            doc.text(formattedPhone, xPosition + ticketWidth/2, yPosition + 30, {align: 'center'});
+            doc.text(formattedPhone, xPosition + actualTicketWidth/2, yPosition + 32, {align: 'center'});
         }
 
-        // 🔧 FIXED: Better email handling  
-        doc.setFontSize(6);
+        // Email with full space available
+        doc.setFontSize(7);
         let emailAddress = ticket.email;
         
-        // If no email, try contact_id (might contain email for old format)
         if (!emailAddress && ticket.contact_id) {
             const contactId = String(ticket.contact_id);
             if (contactId.includes('@')) {
@@ -241,11 +240,12 @@ export async function GET(req: NextRequest) {
         }
         
         if (emailAddress) {
-            const wrappedEmailText = doc.splitTextToSize(emailAddress, ticketWidth - 4);
-            doc.text(wrappedEmailText, xPosition + ticketWidth/2, yPosition + 36, {align: 'center'});
+            // With A3 space, we can show longer emails
+            const wrappedEmailText = doc.splitTextToSize(emailAddress, actualTicketWidth - 4);
+            doc.text(wrappedEmailText, xPosition + actualTicketWidth/2, yPosition + 38, {align: 'center'});
         }
 
-        // 🔧 DEBUG: Log missing data
+        // 🔧 DEBUG: Log missing data for A3 format
         if (!customerName && !phoneNumber && !emailAddress) {
             console.log(`⚠️ Ticket ${ticket.ticket_number} missing contact data:`, {
                 first_name: ticket.first_name,
