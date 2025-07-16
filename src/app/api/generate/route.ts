@@ -194,7 +194,7 @@ export async function GET(req: NextRequest) {
 
         const logoX = xPos + (ticketWidth - logoWidth) / 2;
         const logoY = yPos + 2;
-        doc.addImage(logoDataURL, 'PNG', logoX, logoY, logoWidth, logoHeight);
+        doc.addImage(logoDataURL, logoX, logoY, logoWidth, logoHeight);
 
         doc.setFontSize(10).setFont('Helvetica', 'bold');
         const ticketY = logoY + logoHeight + 3;
