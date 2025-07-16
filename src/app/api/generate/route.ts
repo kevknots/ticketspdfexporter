@@ -1,4 +1,75 @@
-// src/app/api/generate/route.ts - PARALLEL PROCESSING FOR SPEED
+// src/app/api/generate/route.ts - FAST PARALLEL VERSION
+
+import { NextRequest } from "next/server";
+import { db } from "@/lib/db";
+import jsPDF from 'jspdf';
+
+const logoCache = new Map<string, string>();
+
+const getImageData = async (url: string): Promise<string> => {
+    if (logoCache.has(url)) {
+        return logoCache.get(url)!;
+    }
+    
+    const fetch = (await import('node-fetch')).default
+    const response = await fetch(url);
+    const buffer = await response.buffer();
+    const base64 = buffer.toString('base64');
+    
+    logoCache.set(url, base64);
+    return base64;
+};
+
+const PHONE_REGEX = /^(1|)?(\d{3})(\d{3})(\d{4})$/;
+
+function formatPhoneNumber(phoneNumberString: string): string | null {
+    const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
+    const match = cleaned.match(PHONE_REGEX);
+    if (match) {
+        const intlCode = (match[1] ? '+1 ' : '');
+        return [intlCode, '(', match[2], ') ', match[3], '-', match[4]].join('');
+    }
+    return null;
+}
+
+function extractPhoneFromContactId(contactId: string): string | null {
+    if (!contactId || contactId.includes('@')) return null;
+    const digits = contactId.replace(/\D/g, '');
+    if (digits.length === 10) return digits;
+    if (digits.length === 11 && digits.startsWith('1')) return digits.substring(1);
+    return null;
+}
+
+// 🚀 PARALLEL: Process ticket data in batches
+async function processTicketBatch(tickets: any[]): Promise<any[]> {
+    return tickets.map(ticket => {
+        let customerName = '';
+        if (ticket.first_name || ticket.last_name) {
+            customerName = `${ticket.first_name || ''} ${ticket.last_name || ''}`.trim();
+        } else if (ticket.name) {
+            customerName = ticket.name;
+        }
+
+        let phoneNumber = '';
+        if (ticket.phone_number?.trim()) {
+            phoneNumber = ticket.phone_number.trim();
+        } else if (ticket.contact_id) {
+            const extracted = extractPhoneFromContactId(ticket.contact_id);
+            if (extracted) phoneNumber = extracted;
+        }
+
+        let emailAddress = '';
+        if (ticket.email?.trim()) {
+            emailAddress = ticket.email.trim();
+        } else if (ticket.contact_id?.includes('@')) {
+            emailAddress = ticket.contact_id;
+        }
+
+        const formattedPhone = phoneNumber ? (formatPhoneNumber(phoneNumber) || phoneNumber) : '';
+        const displayName = customerName.length > 25 ? customerName.substring(0, 25) + '...' : customerName;
+        const displayEmail = emailAddress && emailAddress !== phoneNumber 
+            ? (emailAddress.length > 30 ? emailAddress.substring(0, 30) + '...' : emailAddress)
+            : '';// src/app/api/generate/route.ts - PARALLEL PROCESSING FOR SPEED
 
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
@@ -216,7 +287,8 @@ export async function GET(req: NextRequest) {
         // Logo
         const logoX = xPos + (ticketWidth - logoWidth) / 2;
         const logoY = yPos + 2;
-        doc.addImage(logoDataURL, 'PNG', logoX, logoY, logoWidth, logoHeight, undefined, 'FAST');
+        // Add logo
+        doc.addImage(logoDataURL, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
         // Batch all text operations for this ticket
         const textOperations = [
