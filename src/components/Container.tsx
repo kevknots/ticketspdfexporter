@@ -37,7 +37,8 @@ export function Container(){
     const [loading, setLoading] = useState(false);
     const [selectedType, setSelectedType] = useState('');
     const [debugData, setDebugData] = useState<DebugData | null>(null);
-    const [testMode, setTestMode] = useState(false); // 🚀 NEW: Test mode for faster generation
+    const [testMode, setTestMode] = useState(false); 
+    const [performanceMode, setPerformanceMode] = useState<'parallel' | 'streaming'>('parallel'); // 🚀 NEW: Performance mode
     
     console.log('Selected dates:', {
         from: from.toLocaleString("en-US", {timeZone: "America/New_York"}),
@@ -206,19 +207,21 @@ Check console for detailed results.`);
         const fromAPI = formatDateForAPI(from);
         const toAPI = formatDateForAPI(to);
         
-        // 🚀 PERFORMANCE: Add limit parameter for test mode
-        const limitParam = testMode ? '&limit=100' : ''; // Limit to 100 tickets in test mode
+        // 🚀 PERFORMANCE: Choose endpoint based on mode
+        const endpoint = performanceMode === 'streaming' ? '/api/generate-stream' : '/api/generate';
+        const limitParam = testMode ? '&limit=100' : '';
         
         // Open PDF in new window
-        const pdfUrl = `/api/generate?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${selectedType}${limitParam}`;
-        console.log('🚀 Opening PDF URL:', pdfUrl);
+        const pdfUrl = `${endpoint}?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${selectedType}${limitParam}`;
+        console.log(`🚀 Opening ${performanceMode.toUpperCase()} PDF URL:`, pdfUrl);
         console.log('📊 Performance mode:', testMode ? 'Test (100 tickets max)' : 'Full');
         
         const startTime = Date.now();
         
-        // Show progress message
+        // Show progress message based on mode
         if (!testMode) {
-            alert('📄 Generating PDF... This may take 30-60 seconds for large datasets. Check browser console for progress updates.');
+            const modeText = performanceMode === 'streaming' ? 'STREAMING (memory efficient)' : 'PARALLEL (speed optimized)';
+            alert(`⚡ Generating PDF using ${modeText}...\n\nThis should be MUCH faster than before!\nCheck browser console for real-time progress.`);
         }
         
         window.open(pdfUrl, '_blank');
@@ -228,7 +231,7 @@ Check console for detailed results.`);
             setLoading(false);
             const elapsed = Date.now() - startTime;
             console.log(`✅ PDF generation completed in ${elapsed}ms`);
-        }, testMode ? 5000 : 15000); // Shorter timeout for test mode
+        }, testMode ? 3000 : 8000); // Much shorter timeouts with optimizations
     };
 
     return (
@@ -269,7 +272,10 @@ Check console for detailed results.`);
 
             {/* 🚀 NEW: Performance Options */}
             <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                <label className="flex items-center space-x-2">
+                <h3 className="font-semibold mb-3">⚡ Performance Options</h3>
+                
+                {/* Test Mode */}
+                <label className="flex items-center space-x-2 mb-3">
                     <input
                         type="checkbox"
                         checked={testMode}
@@ -280,8 +286,42 @@ Check console for detailed results.`);
                         🚀 Test Mode (Generate only first 100 tickets for faster testing)
                     </span>
                 </label>
-                <p className="text-xs text-blue-600 mt-1">
-                    Enable this for quick testing. Disable for full production PDFs.
+                
+                {/* Performance Mode Selection */}
+                <div className="space-y-2">
+                    <label className="block text-sm font-medium">Generation Strategy:</label>
+                    <div className="space-y-2">
+                        <label className="flex items-center space-x-2">
+                            <input
+                                type="radio"
+                                name="performanceMode"
+                                value="parallel"
+                                checked={performanceMode === 'parallel'}
+                                onChange={(e) => setPerformanceMode(e.target.value as 'parallel')}
+                                className="rounded"
+                            />
+                            <span className="text-sm">
+                                ⚡ <strong>Parallel Processing</strong> - Fastest for most datasets (Uses Promise.all)
+                            </span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                            <input
+                                type="radio"
+                                name="performanceMode" 
+                                value="streaming"
+                                checked={performanceMode === 'streaming'}
+                                onChange={(e) => setPerformanceMode(e.target.value as 'streaming')}
+                                className="rounded"
+                            />
+                            <span className="text-sm">
+                                🌊 <strong>Streaming</strong> - Best for very large datasets (Memory efficient)
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                
+                <p className="text-xs text-blue-600 mt-2">
+                    Both modes are optimized to avoid 504 timeouts. Try Parallel first, use Streaming for 5000+ tickets.
                 </p>
             </div>
 
@@ -296,16 +336,20 @@ Check console for detailed results.`);
                     <>
                         <button 
                             className={`px-6 py-3 text-white rounded-lg transition-colors shadow-lg disabled:opacity-50 ${
-                                testMode 
-                                    ? 'bg-orange-500 hover:bg-orange-600' 
-                                    : 'bg-teal-500 hover:bg-teal-600'
+                                performanceMode === 'streaming' 
+                                    ? 'bg-blue-500 hover:bg-blue-600'
+                                    : testMode 
+                                        ? 'bg-orange-500 hover:bg-orange-600' 
+                                        : 'bg-teal-500 hover:bg-teal-600'
                             }`}
                             onClick={generatePDF}
                             disabled={!selectedType}
                         >
                             {testMode 
-                                ? '🚀 Generate Test PDF (100 tickets)' 
-                                : '📄 Generate Full PDF (11x17, 40 per page)'
+                                ? `🚀 Generate Test PDF (100 tickets, ${performanceMode})` 
+                                : performanceMode === 'streaming'
+                                    ? '🌊 Generate PDF (Streaming Mode)'
+                                    : '⚡ Generate PDF (Parallel Mode)'
                             }
                         </button>
                         
