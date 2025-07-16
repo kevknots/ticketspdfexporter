@@ -1,4 +1,4 @@
-// src/app/api/generate-stream/route.ts - STREAMING + PARALLEL PROCESSING
+// src/app/api/generate-stream/route.ts - STREAMING FOR LARGE DATASETS
 
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
@@ -11,10 +11,9 @@ const getImageData = async (url: string): Promise<string> => {
         return logoCache.get(url)!;
     }
     
-    const fetch = (await import('node-fetch')).default
     const response = await fetch(url);
-    const buffer = await response.buffer();
-    const base64 = buffer.toString('base64');
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
     
     logoCache.set(url, base64);
     return base64;
@@ -40,7 +39,6 @@ function extractPhoneFromContactId(contactId: string): string | null {
     return null;
 }
 
-// 🚀 STREAMING: Process and render tickets in smaller batches
 async function streamProcessTickets(
     doc: jsPDF,
     tickets: any[],
@@ -48,7 +46,6 @@ async function streamProcessTickets(
     startIndex: number = 0
 ): Promise<void> {
     
-    // Layout constants
     const pageWidth = 431.8, pageHeight = 279.4;
     const ticketsPerRow = 5, ticketsPerColumn = 8;
     const totalTicketsPerPage = 40;
@@ -61,19 +58,16 @@ async function streamProcessTickets(
     const logoWidth = ticketWidth * 0.6;
     const logoHeight = ticketHeight * 0.25;
 
-    // Process tickets in parallel micro-batches of 20
     const MICRO_BATCH_SIZE = 20;
     
     for (let batchStart = 0; batchStart < tickets.length; batchStart += MICRO_BATCH_SIZE) {
         const batchEnd = Math.min(batchStart + MICRO_BATCH_SIZE, tickets.length);
         const batch = tickets.slice(batchStart, batchEnd);
         
-        // Process batch data in parallel
         const processedBatch = await Promise.all(
             batch.map(async (ticket, batchIndex) => {
                 const globalIndex = startIndex + batchStart + batchIndex;
                 
-                // Process ticket data
                 let customerName = '';
                 if (ticket.first_name || ticket.last_name) {
                     customerName = `${ticket.first_name || ''} ${ticket.last_name || ''}`.trim();
@@ -96,14 +90,12 @@ async function streamProcessTickets(
                     emailAddress = ticket.contact_id;
                 }
 
-                // Pre-format all text
                 const formattedPhone = phoneNumber ? (formatPhoneNumber(phoneNumber) || phoneNumber) : '';
                 const displayName = customerName.length > 25 ? customerName.substring(0, 25) + '...' : customerName;
                 const displayEmail = emailAddress && emailAddress !== phoneNumber 
                     ? (emailAddress.length > 30 ? emailAddress.substring(0, 30) + '...' : emailAddress)
                     : '';
 
-                // Calculate position
                 if (globalIndex > 0 && globalIndex % totalTicketsPerPage === 0) {
                     return { addPage: true };
                 }
@@ -132,49 +124,40 @@ async function streamProcessTickets(
             })
         );
 
-        // Render batch to PDF (synchronous for PDF consistency)
         for (const item of processedBatch) {
             if (item.addPage) {
                 doc.addPage();
                 continue;
             }
 
-            // Add logo
             doc.addImage(logoDataURL, 'PNG', item.logoX, item.logoY, item.logoWidth, item.logoHeight);
 
-            // Batch text operations
             const textY = item.logoY + item.logoHeight + 3;
             
-            // Ticket number
             doc.setFontSize(10).setFont('Helvetica', 'bold');
             doc.text(item.ticket_number, item.xPos + item.ticketWidth/2, textY, {align: 'center'});
 
-            // Customer name
             if (item.displayName) {
                 doc.setFontSize(8).setFont('Helvetica', 'bold');
                 doc.text(item.displayName, item.xPos + item.ticketWidth/2, textY + 4, {align: 'center'});
             }
 
-            // Phone number
             if (item.formattedPhone) {
                 doc.setFontSize(7).setFont('Helvetica', 'normal');
                 doc.text(item.formattedPhone, item.xPos + item.ticketWidth/2, textY + 8, {align: 'center'});
             }
 
-            // Email
             if (item.displayEmail) {
                 doc.setFontSize(6).setFont('Helvetica', 'normal');
                 doc.text(item.displayEmail, item.xPos + item.ticketWidth/2, textY + 11, {align: 'center'});
             }
         }
 
-        // Progress update every batch
         const totalProcessed = startIndex + batchEnd;
         if (batchEnd % 100 === 0 || batchEnd === tickets.length) {
             console.log(`⚡ STREAMING: Processed ${totalProcessed} tickets`);
         }
 
-        // Yield control to prevent blocking
         await new Promise(resolve => setImmediate(resolve));
     }
 }
@@ -201,7 +184,6 @@ export async function GET(req: NextRequest) {
         return new Response('Invalid date format provided!', { status: 400 });
     }
 
-    // Initialize PDF immediately
     const doc = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -209,7 +191,6 @@ export async function GET(req: NextRequest) {
         compress: true
     });
 
-    // Start logo loading and database query in parallel
     const logoUrl = type === "winme" 
         ? "https://staging.baddworldwide.com/test/uploads/winme_min_3fc7b4f20e.webp" 
         : "https://staging.baddworldwide.com/test/uploads/header_logo_badd_1_p_1_1_336873557e.png"
@@ -218,7 +199,6 @@ export async function GET(req: NextRequest) {
     
     const [logoImage, totalCount] = await Promise.all([
         getImageData(logoUrl),
-        // Get total count first
         (async () => {
             const whereClause = {
                 created_at: { lte: lteDate, gte: gteDate },
@@ -238,8 +218,7 @@ export async function GET(req: NextRequest) {
 
     const logoDataURL = `data:image/png;base64,${logoImage}`;
 
-    // 🚀 STREAMING: Process tickets in chunks to avoid memory issues
-    const CHUNK_SIZE = 500; // Process 500 tickets at a time
+    const CHUNK_SIZE = 1500;
     const actualLimit = limit ? Math.min(parseInt(limit), totalCount) : totalCount;
     
     let processedTotal = 0;
@@ -249,7 +228,6 @@ export async function GET(req: NextRequest) {
         
         console.log(`📦 Processing chunk ${Math.floor(offset/CHUNK_SIZE) + 1}: tickets ${offset + 1}-${offset + currentChunkSize}`);
         
-        // Fetch chunk
         const queryOptions = {
             where: {
                 created_at: { lte: lteDate, gte: gteDate },
@@ -274,7 +252,6 @@ export async function GET(req: NextRequest) {
             db.tickets.findMany(queryOptions)
         );
 
-        // Stream process this chunk
         await streamProcessTickets(doc, ticketChunk, logoDataURL, processedTotal);
         
         processedTotal += ticketChunk.length;
@@ -282,7 +259,6 @@ export async function GET(req: NextRequest) {
         console.log(`✅ Chunk completed. Total processed: ${processedTotal}/${actualLimit}`);
     }
 
-    // Generate final PDF
     console.log('📄 Generating final PDF buffer...');
     const bufferStart = Date.now();
     const pdfBuffer = doc.output('arraybuffer');
