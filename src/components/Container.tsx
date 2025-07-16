@@ -8,6 +8,25 @@ const formatDateForAPI = (date: Date): string => {
     return date.toISOString();
 };
 
+// Type definition for debug data
+type DebugData = {
+    ticketType: string;
+    summary: {
+        phoneStats: {
+            total: number;
+            hasAnyPhone: number;
+            noPhone: number;
+        };
+        july2025Count: number;
+        monthCounts: Record<string, number>;
+    };
+    phoneIssues: Array<{
+        ticket_number: string;
+        name: string;
+        contact_id: string;
+    }>;
+};
+
 export function Container(){
     // 🔧 FIXED: Initialize with July 2025 date range by default
     const now = new Date();
@@ -17,7 +36,7 @@ export function Container(){
     const [from, setFrom] = useState(july1st);
     const [loading, setLoading] = useState(false);
     const [selectedType, setSelectedType] = useState('');
-    const [debugData, setDebugData] = useState(null);
+    const [debugData, setDebugData] = useState<DebugData | null>(null);
     
     console.log('Selected dates:', {
         from: from.toLocaleString("en-US", {timeZone: "America/New_York"}),
@@ -229,19 +248,19 @@ export function Container(){
                     {/* Summary Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                         <div className="bg-white p-3 rounded">
-                            <div className="text-2xl font-bold text-blue-600">{debugData.summary.phoneStats.total}</div>
+                            <div className="text-2xl font-bold text-blue-600">{debugData.summary?.phoneStats?.total || 0}</div>
                             <div className="text-sm text-gray-600">Total Analyzed</div>
                         </div>
                         <div className="bg-white p-3 rounded">
-                            <div className="text-2xl font-bold text-green-600">{debugData.summary.phoneStats.hasAnyPhone}</div>
+                            <div className="text-2xl font-bold text-green-600">{debugData.summary?.phoneStats?.hasAnyPhone || 0}</div>
                             <div className="text-sm text-gray-600">Have Phone Numbers</div>
                         </div>
                         <div className="bg-white p-3 rounded">
-                            <div className="text-2xl font-bold text-red-600">{debugData.summary.phoneStats.noPhone}</div>
+                            <div className="text-2xl font-bold text-red-600">{debugData.summary?.phoneStats?.noPhone || 0}</div>
                             <div className="text-sm text-gray-600">Missing Phone Numbers</div>
                         </div>
                         <div className="bg-white p-3 rounded">
-                            <div className="text-2xl font-bold text-purple-600">{debugData.summary.july2025Count}</div>
+                            <div className="text-2xl font-bold text-purple-600">{debugData.summary?.july2025Count || 0}</div>
                             <div className="text-sm text-gray-600">July 2025 Tickets</div>
                         </div>
                     </div>
@@ -250,7 +269,7 @@ export function Container(){
                     <div className="mb-4">
                         <h4 className="font-semibold mb-2">Tickets by Month:</h4>
                         <div className="bg-white p-3 rounded">
-                            {Object.entries(debugData.summary.monthCounts).map(([month, count]) => (
+                            {debugData.summary?.monthCounts && Object.entries(debugData.summary.monthCounts).map(([month, count]) => (
                                 <span key={month} className={`inline-block px-2 py-1 rounded text-sm mr-2 mb-1 ${
                                     month.includes('2025-07') ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                                 }`}>
