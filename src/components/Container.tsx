@@ -3,7 +3,7 @@ import { CircularProgress } from "@chakra-ui/react";
 import { useState } from "react";
 import { DateSelector } from "./DateSelector"
 
-// 🔧 FIXED: Better date formatting that preserves timezone info
+// 🔧 FIXED: Simple date formatting - let the browser handle timezone conversion
 const formatDateForAPI = (date: Date): string => {
     return date.toISOString();
 };
@@ -28,11 +28,22 @@ export function Container(){
     
     const expireTickets = async (type: string) => {
         try {
+            // Validate dates
+            if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+                alert('Invalid date selected!');
+                return;
+            }
+            
+            if (from >= to) {
+                alert('From date must be before To date!');
+                return;
+            }
+            
             setLoading(true);
             const fromAPI = formatDateForAPI(from);
             const toAPI = formatDateForAPI(to);
             
-            const res = await fetch(`/api/expire_505?lte=${toAPI}&gte=${fromAPI}&type=${type}`, {
+            const res = await fetch(`/api/expire_505?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${type}`, {
                 method: 'PUT'
             });
             
@@ -45,6 +56,35 @@ export function Container(){
         } catch (err) {
             console.error('Error expiring tickets:', err);
             alert('Error expiring tickets. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const testDateRange = async () => {
+        if (!selectedType) {
+            alert('Select a ticket type first!');
+            return;
+        }
+        
+        try {
+            setLoading(true);
+            const fromAPI = formatDateForAPI(from);
+            const toAPI = formatDateForAPI(to);
+            
+            const res = await fetch(`/api/test-dates?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${selectedType}`);
+            const data = await res.json();
+            
+            if (data.success) {
+                console.log('Date test results:', data);
+                alert(`✅ Date test successful!\n\nFound ${data.query_results.total_tickets_found} tickets in range\nSample tickets: ${data.query_results.sample_count}\n\nCheck console for detailed results.`);
+            } else {
+                console.error('Date test failed:', data);
+                alert(`❌ Date test failed: ${data.error}`);
+            }
+        } catch (err) {
+            console.error('Error testing dates:', err);
+            alert('Error testing dates. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -72,7 +112,18 @@ export function Container(){
 
     const generatePDF = () => {
         if (selectedType === '') {
-            alert("Select tickets type first!");
+            alert('Select tickets type first!');
+            return;
+        }
+        
+        // Validate dates
+        if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+            alert('Invalid date selected!');
+            return;
+        }
+        
+        if (from >= to) {
+            alert('From date must be before To date!');
             return;
         }
         
@@ -81,8 +132,9 @@ export function Container(){
         const toAPI = formatDateForAPI(to);
         
         // Open PDF in new window
-        const pdfUrl = `/api/generate?lte=${toAPI}&gte=${fromAPI}&type=${selectedType}`;
+        const pdfUrl = `/api/generate?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${selectedType}`;
         console.log('Opening PDF URL:', pdfUrl);
+        console.log('Date params:', { fromAPI, toAPI });
         window.open(pdfUrl, '_blank');
         
         // Reset loading after a short delay
@@ -140,6 +192,14 @@ export function Container(){
                             disabled={!selectedType}
                         >
                             📄 Generate 11x17 PDF (40 per page)
+                        </button>
+                        
+                        <button 
+                            className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors shadow-lg disabled:opacity-50"
+                            onClick={testDateRange}
+                            disabled={!selectedType}
+                        >
+                            🧪 Test Date Range
                         </button>
                         
                         <button 
@@ -226,13 +286,15 @@ export function Container(){
 
             {/* Instructions */}
             <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <h3 className="font-semibold text-yellow-800 mb-2">Latest Updates:</h3>
+                <h3 className="font-semibold text-yellow-800 mb-2">Latest Updates & Instructions:</h3>
                 <ul className="text-sm text-yellow-700 space-y-1">
                     <li>✅ <strong>Format:</strong> Changed to 11x17 paper, 5 across x 8 down (40 tickets per page)</li>
                     <li>✅ <strong>Phone Numbers:</strong> Improved detection from contact_id field</li>
                     <li>✅ <strong>Date Filtering:</strong> Fixed timezone handling for accurate month filtering</li>
-                    <li>🔧 <strong>Debug Tool:</strong> Use "Debug Ticket Data" to analyze your data quality</li>
+                    <li>🧪 <strong>Test Date Range:</strong> Use this button FIRST to verify your date range finds the right tickets</li>
+                    <li>🔧 <strong>Debug Tool:</strong> Use &quot;Debug Ticket Data&quot; to analyze your data quality</li>
                     <li>📅 Default date range set to July 2025</li>
+                    <li>⚠️ <strong>Recommended workflow:</strong> Test Date Range → Debug Data → Generate PDF</li>
                 </ul>
             </div>
         </div>
