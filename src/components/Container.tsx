@@ -37,6 +37,7 @@ export function Container(){
     const [loading, setLoading] = useState(false);
     const [selectedType, setSelectedType] = useState('');
     const [debugData, setDebugData] = useState<DebugData | null>(null);
+    const [testMode, setTestMode] = useState(false); // 🚀 NEW: Test mode for faster generation
     
     console.log('Selected dates:', {
         from: from.toLocaleString("en-US", {timeZone: "America/New_York"}),
@@ -109,7 +110,62 @@ export function Container(){
         }
     };
 
+    const performanceTest = async () => {
+        if (!selectedType) {
+            alert('Select a ticket type first!');
+            return;
+        }
+        
+        try {
+            setLoading(true);
+            const testLimit = testMode ? 100 : 500;
+            const res = await fetch(`/api/performance-test?type=${selectedType}&limit=${testLimit}`);
+            const data = await res.json();
+            
+            if (data.performance_test) {
+                console.log('🚀 Performance test results:', data);
+                const perf = data.performance_test;
+                alert(`⚡ Performance Test Results:
+
+📊 Tested ${perf.tickets_tested} tickets
+⏱️ Database query: ${perf.query_time_ms}ms
+🔄 Processing: ${perf.processing_time_ms}ms  
+📄 Estimated PDF time: ${perf.estimated_total_pdf_time_seconds} seconds
+📞 Phone numbers found: ${perf.phone_percentage}%
+
+${data.recommendations.use_test_mode === 'Recommended for initial testing' ? '💡 Recommendation: Use Test Mode for initial testing' : '✅ Performance looks good!'}
+
+Check console for detailed results.`);
+            } else {
+                alert(`❌ Performance test failed: ${data.error}`);
+            }
+        } catch (err) {
+            console.error('Error running performance test:', err);
+            alert('Error running performance test. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const debugTicketData = async () => {
+        if (!selectedType) {
+            alert('Select a ticket type first!');
+            return;
+        }
+        
+        try {
+            setLoading(true);
+            const res = await fetch(`/api/debug-data?type=${selectedType}`);
+            const data = await res.json() as DebugData;
+            setDebugData(data);
+            console.log('Debug data:', data);
+        } catch (err) {
+            console.error('Error fetching debug data:', err);
+            alert('Error fetching debug data. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
         if (!selectedType) {
             alert("Select a ticket type first!");
             return;
@@ -150,14 +206,29 @@ export function Container(){
         const fromAPI = formatDateForAPI(from);
         const toAPI = formatDateForAPI(to);
         
+        // 🚀 PERFORMANCE: Add limit parameter for test mode
+        const limitParam = testMode ? '&limit=100' : ''; // Limit to 100 tickets in test mode
+        
         // Open PDF in new window
-        const pdfUrl = `/api/generate?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${selectedType}`;
-        console.log('Opening PDF URL:', pdfUrl);
-        console.log('Date params:', { fromAPI, toAPI });
+        const pdfUrl = `/api/generate?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${selectedType}${limitParam}`;
+        console.log('🚀 Opening PDF URL:', pdfUrl);
+        console.log('📊 Performance mode:', testMode ? 'Test (100 tickets max)' : 'Full');
+        
+        const startTime = Date.now();
+        
+        // Show progress message
+        if (!testMode) {
+            alert('📄 Generating PDF... This may take 30-60 seconds for large datasets. Check browser console for progress updates.');
+        }
+        
         window.open(pdfUrl, '_blank');
         
-        // Reset loading after a short delay
-        setTimeout(() => setLoading(false), 2000);
+        // Reset loading with performance feedback
+        setTimeout(() => {
+            setLoading(false);
+            const elapsed = Date.now() - startTime;
+            console.log(`✅ PDF generation completed in ${elapsed}ms`);
+        }, testMode ? 5000 : 15000); // Shorter timeout for test mode
     };
 
     return (
@@ -196,6 +267,24 @@ export function Container(){
                 </select>
             </div>
 
+            {/* 🚀 NEW: Performance Options */}
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <label className="flex items-center space-x-2">
+                    <input
+                        type="checkbox"
+                        checked={testMode}
+                        onChange={(e) => setTestMode(e.target.checked)}
+                        className="rounded"
+                    />
+                    <span className="text-sm font-medium">
+                        🚀 Test Mode (Generate only first 100 tickets for faster testing)
+                    </span>
+                </label>
+                <p className="text-xs text-blue-600 mt-1">
+                    Enable this for quick testing. Disable for full production PDFs.
+                </p>
+            </div>
+
             {/* Action Buttons */}
             <div className="flex gap-4 flex-wrap mb-6">
                 {loading ? (
@@ -206,11 +295,18 @@ export function Container(){
                 ) : (
                     <>
                         <button 
-                            className="px-6 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-lg disabled:opacity-50"
+                            className={`px-6 py-3 text-white rounded-lg transition-colors shadow-lg disabled:opacity-50 ${
+                                testMode 
+                                    ? 'bg-orange-500 hover:bg-orange-600' 
+                                    : 'bg-teal-500 hover:bg-teal-600'
+                            }`}
                             onClick={generatePDF}
                             disabled={!selectedType}
                         >
-                            📄 Generate 11x17 PDF (40 per page)
+                            {testMode 
+                                ? '🚀 Generate Test PDF (100 tickets)' 
+                                : '📄 Generate Full PDF (11x17, 40 per page)'
+                            }
                         </button>
                         
                         <button 
@@ -219,6 +315,14 @@ export function Container(){
                             disabled={!selectedType}
                         >
                             🧪 Test Date Range
+                        </button>
+                        
+                        <button 
+                            className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors shadow-lg disabled:opacity-50"
+                            onClick={performanceTest}
+                            disabled={!selectedType}
+                        >
+                            ⚡ Performance Test
                         </button>
                         
                         <button 
