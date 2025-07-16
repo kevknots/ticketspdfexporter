@@ -1,4 +1,4 @@
-// src/app/api/route.ts
+// src/app/api/generate/route.ts
 
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
@@ -22,6 +22,26 @@ function formatPhoneNumber(phoneNumberString: string) {
   return null;
 }
 
+// 🔧 FIXED: Better phone number extraction from contact_id
+function extractPhoneFromContactId(contactId: string): string | null {
+    if (!contactId) return null;
+    
+    // Skip if it's clearly an email
+    if (contactId.includes('@')) return null;
+    
+    // Extract all digits
+    const digits = contactId.replace(/\D/g, '');
+    
+    // Check for valid US phone number patterns
+    if (digits.length === 10) {
+        return digits;
+    } else if (digits.length === 11 && digits.startsWith('1')) {
+        return digits.substring(1); // Remove country code
+    }
+    
+    return null;
+}
+
 export const maxDuration = 300
 
 export async function GET(req: NextRequest) {
@@ -29,28 +49,34 @@ export async function GET(req: NextRequest) {
     const gte = new URL(req.url).searchParams.get('gte')
     const type = new URL(req.url).searchParams.get('type')
 
-    console.log('Date range:', { lte, gte, type });
+    console.log('Date range received:', { lte, gte, type });
 
     if (!lte || !gte) {
         return new Response('No valid date range provided!', { status: 400 });
     }
 
-    // 🔧 FIXED: Use dates directly (already converted by browser)
-    const lteDate = new Date(lte);
-    const gteDate = new Date(gte);
+    // 🔧 FIXED: Proper EST to UTC conversion for database queries
+    const convertESTtoUTC = (dateString: string): Date => {
+        // Parse the date string as EST
+        const estDate = new Date(dateString + ' EST');
+        return estDate;
+    };
 
-    console.log('Database query range:', { 
+    const lteDate = convertESTtoUTC(lte);
+    const gteDate = convertESTtoUTC(gte);
+
+    console.log('Database query range (UTC):', { 
         from: gteDate.toISOString(), 
         to: lteDate.toISOString(),
-        fromLocal: gteDate.toLocaleString("en-US", {timeZone: "America/New_York"}),
-        toLocal: lteDate.toLocaleString("en-US", {timeZone: "America/New_York"})
+        fromEST: gteDate.toLocaleString("en-US", {timeZone: "America/New_York"}),
+        toEST: lteDate.toLocaleString("en-US", {timeZone: "America/New_York"})
     });
     
-    // Initialize jsPDF with better dimensions for ticket layout
+    // 🔧 FIXED: Initialize jsPDF with 11x17 dimensions
     const doc = new jsPDF({
-        orientation: 'landscape', // 🔧 CHANGED: Better for ticket grid
+        orientation: 'landscape',
         unit: 'mm',
-        format: 'a4',
+        format: [279.4, 431.8], // 11x17 inches in mm (11" = 279.4mm, 17" = 431.8mm)
         compress: true
     });
 
@@ -62,20 +88,22 @@ export async function GET(req: NextRequest) {
     const logoImage = await getImageData(logoUrl);
     const logoDataURL = `data:image/png;base64,${logoImage}`;
 
-    // Fetch tickets based on type with debugging
+    // 🔧 FIXED: Better date filtering - ensure we're only getting the correct month
     let tickets = [];
     
     console.log(`Querying ${type} tickets between ${gteDate.toISOString()} and ${lteDate.toISOString()}`);
     
+    const whereClause = {
+        created_at: {
+            lte: lteDate,
+            gte: gteDate
+        },
+        status: 'active'
+    };
+    
     if (type === 'winme') {
         tickets = await db.tickets_winme.findMany({
-            where: {
-                created_at: {
-                    lte: lteDate,
-                    gte: gteDate
-                },
-                status: 'active'
-            },
+            where: whereClause,
             select: {
                 ticket_number: true,
                 product_id: true,
@@ -84,9 +112,8 @@ export async function GET(req: NextRequest) {
                 phone_number: true,
                 email: true,
                 created_at: true,
-                // 🔧 FIXED: Include all possible contact fields
                 contact_id: true,
-                name: true // Old format uses this field
+                name: true
             },
             orderBy: {
                 created_at: 'desc'                
@@ -94,13 +121,7 @@ export async function GET(req: NextRequest) {
         });
     } else {
         tickets = await db.tickets.findMany({
-            where: {
-                created_at: {
-                    lte: lteDate,
-                    gte: gteDate
-                },
-                status: 'active'
-            },
+            where: whereClause,
             select: {
                 ticket_number: true,
                 product_id: true,
@@ -109,9 +130,8 @@ export async function GET(req: NextRequest) {
                 phone_number: true,
                 email: true,
                 created_at: true,
-                // 🔧 FIXED: Include all possible contact fields
                 contact_id: true,
-                name: true // Old format uses this field
+                name: true
             },
             orderBy: {
                 created_at: 'desc'                
@@ -120,48 +140,51 @@ export async function GET(req: NextRequest) {
     }
 
     console.log(`Found ${tickets.length} tickets`);
+    
+    // 🔧 DEBUG: Check the actual months of returned tickets
     if (tickets.length > 0) {
-        console.log('Sample tickets:', tickets.slice(0, 3).map(t => ({
+        const ticketMonths = tickets.map(t => {
+            const month = t.created_at?.getMonth() + 1; // JavaScript months are 0-indexed
+            const year = t.created_at?.getFullYear();
+            return `${year}-${month.toString().padStart(2, '0')}`;
+        });
+        const uniqueMonths = [...new Set(ticketMonths)];
+        console.log('Ticket months found:', uniqueMonths);
+        
+        console.log('Sample tickets with dates:', tickets.slice(0, 5).map(t => ({
             ticket_number: t.ticket_number,
-            created_at: t.created_at,
-            name: `${t.first_name} ${t.last_name}`
+            created_at: t.created_at?.toISOString(),
+            month: t.created_at?.getMonth() + 1,
+            year: t.created_at?.getFullYear()
         })));
     }
-
-    // 🔧 DEBUG: Show recent tickets regardless of date range
-    const recentTickets = await db.tickets.findMany({
-        take: 5,
-        select: {
-            ticket_number: true,
-            created_at: true,
-            first_name: true,
-            last_name: true
-        },
-        orderBy: {
-            created_at: 'desc'
-        }
-    });
-    console.log('5 most recent tickets in database:', recentTickets);
 
     if (tickets.length === 0) {
         return new Response('No tickets found for the specified date range!', { status: 404 });
     }
 
-    // 🔧 FIXED: Layout optimized for 6 rows to match physical cutter
-    const ticketWidth = 55;   // Width fits 5 across with margins
-    const ticketHeight = 32;  // 🔧 REDUCED height to fit 6 rows properly
-    const marginX = 3;        // Tight horizontal margin
-    const marginY = 2;        // 🔧 REDUCED vertical margin to fit 6 rows
-    const startX = 5;         // Small left margin
-    const startY = 8;         // Small top margin
+    // 🔧 FIXED: 11x17 layout - 5 across, 8 down (40 tickets per page)
+    const pageWidth = 431.8;  // 17 inches in mm
+    const pageHeight = 279.4; // 11 inches in mm
     
-    // Grid configuration for landscape A4 (297mm x 210mm) with physical cutter constraints
-    const ticketsPerRow = 5;     // 5 tickets horizontally
-    const ticketsPerColumn = 6;  // 🔧 RESTORED to 6 rows for cutter compatibility
-    const totalTicketsPerPage = ticketsPerRow * ticketsPerColumn; // 30 tickets per page
+    const ticketsPerRow = 5;
+    const ticketsPerColumn = 8;
+    const totalTicketsPerPage = ticketsPerRow * ticketsPerColumn; // 40 tickets per page
     
-    // 🔧 Calculate to ensure fit: 8 + (6 * 32) + (5 * 2) = 8 + 192 + 10 = 210mm (perfect fit)
-    console.log(`📐 Layout check: startY(${startY}) + rows(${ticketsPerColumn} * ${ticketHeight}) + margins(${ticketsPerColumn-1} * ${marginY}) = ${startY + (ticketsPerColumn * ticketHeight) + ((ticketsPerColumn-1) * marginY)}mm (A4 height: 210mm)`);
+    const marginX = 8;        // Horizontal spacing between tickets
+    const marginY = 6;        // Vertical spacing between tickets
+    const startX = 10;        // Left margin
+    const startY = 10;        // Top margin
+    
+    // Calculate ticket dimensions to fit 5x8 grid on 11x17
+    const availableWidth = pageWidth - (2 * startX) - ((ticketsPerRow - 1) * marginX);
+    const availableHeight = pageHeight - (2 * startY) - ((ticketsPerColumn - 1) * marginY);
+    
+    const ticketWidth = availableWidth / ticketsPerRow;   // ~80mm per ticket
+    const ticketHeight = availableHeight / ticketsPerColumn; // ~30mm per ticket
+    
+    console.log(`📐 11x17 Layout: ${ticketWidth.toFixed(1)}mm x ${ticketHeight.toFixed(1)}mm per ticket`);
+    console.log(`📐 Total page usage: ${(startX + (ticketsPerRow * ticketWidth) + ((ticketsPerRow-1) * marginX) + startX).toFixed(1)}mm x ${(startY + (ticketsPerColumn * ticketHeight) + ((ticketsPerColumn-1) * marginY) + startY).toFixed(1)}mm`);
 
     for (let index = 0; index < tickets.length; index++) {
         const ticket = tickets[index];
@@ -171,7 +194,7 @@ export async function GET(req: NextRequest) {
             doc.addPage();
         }
 
-        // 🔧 FIXED: Correct grid positioning using calculated dimensions
+        // Calculate position in 5x8 grid
         const pageIndex = index % totalTicketsPerPage;
         const row = Math.floor(pageIndex / ticketsPerRow);
         const col = pageIndex % ticketsPerRow;
@@ -181,24 +204,24 @@ export async function GET(req: NextRequest) {
 
         console.log(`Ticket ${index}: Row ${row}, Col ${col}, Position (${xPosition.toFixed(1)}, ${yPosition.toFixed(1)})`);
 
-        // 🔧 IMPROVED: Better ticket layout with A3 space
         // Draw ticket border for debugging (uncomment to see boundaries)
         // doc.rect(xPosition, yPosition, ticketWidth, ticketHeight);
 
-        // 🔧 FIXED: Logo positioning for A3 format
-        const logoWidth = 25;  // Larger logo for A3
-        const logoHeight = 10; // Taller logo
+        // Logo positioning
+        const logoWidth = ticketWidth * 0.6;  // 60% of ticket width
+        const logoHeight = ticketHeight * 0.25; // 25% of ticket height
         const logoX = xPosition + (ticketWidth - logoWidth) / 2;
-        const logoY = yPosition + 3;
+        const logoY = yPosition + 2;
         
         doc.addImage(logoDataURL, 'PNG', logoX, logoY, logoWidth, logoHeight, undefined, 'FAST');
 
-        // Add ticket number (larger font for A3)
-        doc.setFontSize(11).setFont('Helvetica', 'bold');
-        doc.text(ticket.ticket_number ?? '', xPosition + ticketWidth/2, yPosition + 18, {align: 'center'});
+        // Ticket number
+        doc.setFontSize(10).setFont('Helvetica', 'bold');
+        const ticketY = logoY + logoHeight + 3;
+        doc.text(ticket.ticket_number ?? '', xPosition + ticketWidth/2, ticketY, {align: 'center'});
 
-        // Customer name with better spacing
-        doc.setFontSize(9).setFont('Helvetica', 'bold');
+        // Customer name
+        doc.setFontSize(8).setFont('Helvetica', 'bold');
         let customerName = '';
         
         if (ticket.first_name || ticket.last_name) {
@@ -207,62 +230,64 @@ export async function GET(req: NextRequest) {
             customerName = ticket.name;
         }
         
+        const nameY = ticketY + 4;
         if (customerName) {
             const wrappedNameText = doc.splitTextToSize(customerName, ticketWidth - 4);
-            doc.text(wrappedNameText, xPosition + ticketWidth/2, yPosition + 25, {align: 'center'});
+            doc.text(wrappedNameText, xPosition + ticketWidth/2, nameY, {align: 'center'});
         }
 
-        // 🔧 FIXED: Better phone number detection and positioning
-        doc.setFontSize(8).setFont('Helvetica', 'normal');
+        // 🔧 FIXED: Improved phone number detection and display
+        doc.setFontSize(7).setFont('Helvetica', 'normal');
         let phoneNumber = '';
         
-        // Try multiple fields for phone number
-        if (ticket.phone_number) {
-            phoneNumber = ticket.phone_number;
+        // Try multiple strategies to find phone number
+        if (ticket.phone_number && ticket.phone_number.trim()) {
+            phoneNumber = ticket.phone_number.trim();
         } else if (ticket.contact_id) {
-            const contactId = String(ticket.contact_id);
-            // Check if contact_id looks like a phone number (10+ digits)
-            const phoneDigits = contactId.replace(/\D/g, '');
-            if (phoneDigits.length >= 10 && !contactId.includes('@')) {
-                phoneNumber = contactId;
+            const extractedPhone = extractPhoneFromContactId(ticket.contact_id);
+            if (extractedPhone) {
+                phoneNumber = extractedPhone;
             }
         }
         
-        console.log(`🔍 Ticket ${ticket.ticket_number}: phone_number='${ticket.phone_number}', contact_id='${ticket.contact_id}', detected phone='${phoneNumber}'`);
+        // Log phone detection for debugging
+        console.log(`🔍 Ticket ${ticket.ticket_number}: phone_number='${ticket.phone_number}', contact_id='${ticket.contact_id}', extracted='${phoneNumber}'`);
         
+        const phoneY = nameY + 4;
         if (phoneNumber) {
             const formattedPhone = formatPhoneNumber(phoneNumber) || phoneNumber;
-            doc.text(formattedPhone, xPosition + ticketWidth/2, yPosition + 32, {align: 'center'});
+            doc.text(formattedPhone, xPosition + ticketWidth/2, phoneY, {align: 'center'});
         } else {
-            // Show placeholder if no phone found
-            doc.setFontSize(7).setFont('Helvetica', 'italic');
-            doc.text('No phone', xPosition + ticketWidth/2, yPosition + 32, {align: 'center'});
+            // Show placeholder for debugging
+            doc.setFontSize(6).setFont('Helvetica', 'italic');
+            doc.text('No phone', xPosition + ticketWidth/2, phoneY, {align: 'center'});
         }
 
-        // 🔧 FIXED: Email positioning (only show if different from phone)
-        doc.setFontSize(7).setFont('Helvetica', 'normal');
+        // Email (only if different from phone and space permits)
         let emailAddress = '';
-        
-        if (ticket.email) {
-            emailAddress = ticket.email;
+        if (ticket.email && ticket.email.trim()) {
+            emailAddress = ticket.email.trim();
         } else if (ticket.contact_id && ticket.contact_id.includes('@')) {
             emailAddress = ticket.contact_id;
         }
         
-        if (emailAddress && emailAddress !== phoneNumber) {
+        const emailY = phoneY + 3;
+        if (emailAddress && emailAddress !== phoneNumber && emailY < yPosition + ticketHeight - 2) {
+            doc.setFontSize(6).setFont('Helvetica', 'normal');
             const wrappedEmailText = doc.splitTextToSize(emailAddress, ticketWidth - 4);
-            doc.text(wrappedEmailText, xPosition + ticketWidth/2, yPosition + 38, {align: 'center'});
+            doc.text(wrappedEmailText, xPosition + ticketWidth/2, emailY, {align: 'center'});
         }
 
-        // 🔧 DEBUG: Log missing data for A3 format
+        // 🔧 DEBUG: Log tickets missing contact data
         if (!customerName && !phoneNumber && !emailAddress) {
-            console.log(`⚠️ Ticket ${ticket.ticket_number} missing contact data:`, {
+            console.log(`⚠️ Ticket ${ticket.ticket_number} missing ALL contact data:`, {
                 first_name: ticket.first_name,
                 last_name: ticket.last_name,
                 name: ticket.name,
                 phone_number: ticket.phone_number,
                 email: ticket.email,
-                contact_id: ticket.contact_id
+                contact_id: ticket.contact_id,
+                created_at: ticket.created_at?.toISOString()
             });
         }
     }
