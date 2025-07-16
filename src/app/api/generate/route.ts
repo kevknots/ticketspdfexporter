@@ -55,17 +55,16 @@ export async function GET(req: NextRequest) {
         return new Response('No valid date range provided!', { status: 400 });
     }
 
-    // 🔧 FIXED: Proper EST to UTC conversion for database queries
-    const convertESTtoUTC = (dateString: string): Date => {
-        // Parse the date string as EST
-        const estDate = new Date(dateString + ' EST');
-        return estDate;
-    };
+    // 🔧 FIXED: Dates are already properly formatted ISO strings from frontend
+    const lteDate = new Date(lte);
+    const gteDate = new Date(gte);
 
-    const lteDate = convertESTtoUTC(lte);
-    const gteDate = convertESTtoUTC(gte);
+    // Validate dates
+    if (isNaN(lteDate.getTime()) || isNaN(gteDate.getTime())) {
+        return new Response('Invalid date format provided!', { status: 400 });
+    }
 
-    console.log('Database query range (UTC):', { 
+    console.log('Database query range:', { 
         from: gteDate.toISOString(), 
         to: lteDate.toISOString(),
         fromEST: gteDate.toLocaleString("en-US", {timeZone: "America/New_York"}),
@@ -144,8 +143,9 @@ export async function GET(req: NextRequest) {
     // 🔧 DEBUG: Check the actual months of returned tickets
     if (tickets.length > 0) {
         const ticketMonths = tickets.map(t => {
-            const month = t.created_at?.getMonth() + 1; // JavaScript months are 0-indexed
-            const year = t.created_at?.getFullYear();
+            if (!t.created_at) return 'unknown';
+            const month = t.created_at.getMonth() + 1; // JavaScript months are 0-indexed
+            const year = t.created_at.getFullYear();
             return `${year}-${month.toString().padStart(2, '0')}`;
         });
         const uniqueMonths = [...new Set(ticketMonths)];
@@ -154,8 +154,8 @@ export async function GET(req: NextRequest) {
         console.log('Sample tickets with dates:', tickets.slice(0, 5).map(t => ({
             ticket_number: t.ticket_number,
             created_at: t.created_at?.toISOString(),
-            month: t.created_at?.getMonth() + 1,
-            year: t.created_at?.getFullYear()
+            month: t.created_at ? t.created_at.getMonth() + 1 : null,
+            year: t.created_at ? t.created_at.getFullYear() : null
         })));
     }
 
@@ -251,7 +251,9 @@ export async function GET(req: NextRequest) {
         }
         
         // Log phone detection for debugging
-        console.log(`🔍 Ticket ${ticket.ticket_number}: phone_number='${ticket.phone_number}', contact_id='${ticket.contact_id}', extracted='${phoneNumber}'`);
+        if (ticket.ticket_number) {
+            console.log(`🔍 Ticket ${ticket.ticket_number}: phone_number='${ticket.phone_number}', contact_id='${ticket.contact_id}', extracted='${phoneNumber}'`);
+        }
         
         const phoneY = nameY + 4;
         if (phoneNumber) {
@@ -287,7 +289,7 @@ export async function GET(req: NextRequest) {
                 phone_number: ticket.phone_number,
                 email: ticket.email,
                 contact_id: ticket.contact_id,
-                created_at: ticket.created_at?.toISOString()
+                created_at: ticket.created_at ? ticket.created_at.toISOString() : 'No date'
             });
         }
     }
