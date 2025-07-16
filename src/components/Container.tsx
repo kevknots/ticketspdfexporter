@@ -3,36 +3,36 @@ import { CircularProgress } from "@chakra-ui/react";
 import { useState } from "react";
 import { DateSelector } from "./DateSelector"
 
-// 🔧 Helper function to convert date to EST and format for API
-const formatDateForEST = (date: Date): string => {
-    // Create a new date in EST timezone
-    const estDate = new Date(date.toLocaleString("en-US", {timeZone: "America/New_York"}));
-    return estDate.toISOString();
+// 🔧 FIXED: Better date formatting that preserves timezone info
+const formatDateForAPI = (date: Date): string => {
+    return date.toISOString();
 };
 
 export function Container(){
-    // 🔧 FIXED: Initialize with current EST time
+    // 🔧 FIXED: Initialize with July 2025 date range by default
     const now = new Date();
     const [to, setTo] = useState(now);
-    const [from, setFrom] = useState(new Date(now.getTime() - 24 * 60 * 60 * 1000)); // 24 hours ago
+    // Default to July 1st, 2025 for "from" date
+    const july1st = new Date(2025, 6, 1); // Month is 0-indexed, so 6 = July
+    const [from, setFrom] = useState(july1st);
     const [loading, setLoading] = useState(false);
     const [selectedType, setSelectedType] = useState('');
+    const [debugData, setDebugData] = useState(null);
     
-    // 🔧 IMPROVED: Better date formatting for debugging
     console.log('Selected dates:', {
         from: from.toLocaleString("en-US", {timeZone: "America/New_York"}),
         to: to.toLocaleString("en-US", {timeZone: "America/New_York"}),
-        fromISO: formatDateForEST(from),
-        toISO: formatDateForEST(to)
+        fromISO: formatDateForAPI(from),
+        toISO: formatDateForAPI(to)
     });
     
     const expireTickets = async (type: string) => {
         try {
             setLoading(true);
-            const fromEST = formatDateForEST(from);
-            const toEST = formatDateForEST(to);
+            const fromAPI = formatDateForAPI(from);
+            const toAPI = formatDateForAPI(to);
             
-            const res = await fetch(`/api/expire_505?lte=${toEST}&gte=${fromEST}&type=${type}`, {
+            const res = await fetch(`/api/expire_505?lte=${toAPI}&gte=${fromAPI}&type=${type}`, {
                 method: 'PUT'
             });
             
@@ -50,6 +50,26 @@ export function Container(){
         }
     };
 
+    const debugTicketData = async () => {
+        if (!selectedType) {
+            alert("Select a ticket type first!");
+            return;
+        }
+        
+        try {
+            setLoading(true);
+            const res = await fetch(`/api/debug-data?type=${selectedType}`);
+            const data = await res.json();
+            setDebugData(data);
+            console.log('Debug data:', data);
+        } catch (err) {
+            console.error('Error fetching debug data:', err);
+            alert('Error fetching debug data. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const generatePDF = () => {
         if (selectedType === '') {
             alert("Select tickets type first!");
@@ -57,11 +77,12 @@ export function Container(){
         }
         
         setLoading(true);
-        const fromEST = formatDateForEST(from);
-        const toEST = formatDateForEST(to);
+        const fromAPI = formatDateForAPI(from);
+        const toAPI = formatDateForAPI(to);
         
         // Open PDF in new window
-        const pdfUrl = `/api/generate?lte=${toEST}&gte=${fromEST}&type=${selectedType}`;
+        const pdfUrl = `/api/generate?lte=${toAPI}&gte=${fromAPI}&type=${selectedType}`;
+        console.log('Opening PDF URL:', pdfUrl);
         window.open(pdfUrl, '_blank');
         
         // Reset loading after a short delay
@@ -69,8 +90,8 @@ export function Container(){
     };
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-6">Ticket PDF Generator</h1>
+        <div className="p-8 max-w-6xl mx-auto">
+            <h1 className="text-2xl font-bold mb-6">Ticket PDF Generator - 11x17 Format</h1>
             
             {/* Date Selection */}
             <div className="bg-gray-50 p-6 rounded-lg mb-6">
@@ -105,7 +126,7 @@ export function Container(){
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-4 flex-wrap">
+            <div className="flex gap-4 flex-wrap mb-6">
                 {loading ? (
                     <div className="flex items-center gap-2">
                         <CircularProgress isIndeterminate color='green.300' size="sm" />
@@ -118,7 +139,15 @@ export function Container(){
                             onClick={generatePDF}
                             disabled={!selectedType}
                         >
-                            📄 Generate PDF for Date Range
+                            📄 Generate 11x17 PDF (40 per page)
+                        </button>
+                        
+                        <button 
+                            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg disabled:opacity-50"
+                            onClick={debugTicketData}
+                            disabled={!selectedType}
+                        >
+                            🔍 Debug Ticket Data
                         </button>
                         
                         <button 
@@ -132,14 +161,78 @@ export function Container(){
                 )}
             </div>
 
+            {/* Debug Data Display */}
+            {debugData && (
+                <div className="bg-gray-50 p-6 rounded-lg mb-6">
+                    <h3 className="text-lg font-semibold mb-4">Debug Results for {debugData.ticketType} Tickets</h3>
+                    
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-white p-3 rounded">
+                            <div className="text-2xl font-bold text-blue-600">{debugData.summary.phoneStats.total}</div>
+                            <div className="text-sm text-gray-600">Total Analyzed</div>
+                        </div>
+                        <div className="bg-white p-3 rounded">
+                            <div className="text-2xl font-bold text-green-600">{debugData.summary.phoneStats.hasAnyPhone}</div>
+                            <div className="text-sm text-gray-600">Have Phone Numbers</div>
+                        </div>
+                        <div className="bg-white p-3 rounded">
+                            <div className="text-2xl font-bold text-red-600">{debugData.summary.phoneStats.noPhone}</div>
+                            <div className="text-sm text-gray-600">Missing Phone Numbers</div>
+                        </div>
+                        <div className="bg-white p-3 rounded">
+                            <div className="text-2xl font-bold text-purple-600">{debugData.summary.july2025Count}</div>
+                            <div className="text-sm text-gray-600">July 2025 Tickets</div>
+                        </div>
+                    </div>
+
+                    {/* Month Distribution */}
+                    <div className="mb-4">
+                        <h4 className="font-semibold mb-2">Tickets by Month:</h4>
+                        <div className="bg-white p-3 rounded">
+                            {Object.entries(debugData.summary.monthCounts).map(([month, count]) => (
+                                <span key={month} className={`inline-block px-2 py-1 rounded text-sm mr-2 mb-1 ${
+                                    month.includes('2025-07') ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                    {month}: {count}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Phone Issues */}
+                    {debugData.phoneIssues && debugData.phoneIssues.length > 0 && (
+                        <div className="mb-4">
+                            <h4 className="font-semibold mb-2 text-red-600">Tickets Missing Phone Numbers:</h4>
+                            <div className="bg-white p-3 rounded max-h-40 overflow-y-auto">
+                                {debugData.phoneIssues.map((ticket, idx) => (
+                                    <div key={idx} className="text-sm mb-1">
+                                        <strong>{ticket.ticket_number}</strong> - {ticket.name || 'No name'} 
+                                        {ticket.contact_id && <span className="text-gray-500"> (contact_id: {ticket.contact_id})</span>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <button 
+                        className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                        onClick={() => setDebugData(null)}
+                    >
+                        Close Debug Data
+                    </button>
+                </div>
+            )}
+
             {/* Instructions */}
             <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <h3 className="font-semibold text-yellow-800 mb-2">Instructions:</h3>
+                <h3 className="font-semibold text-yellow-800 mb-2">Latest Updates:</h3>
                 <ul className="text-sm text-yellow-700 space-y-1">
-                    <li>• All times are automatically converted to EST</li>
-                    <li>• PDF generation opens in a new tab</li>
-                    <li>• Expire function permanently marks tickets as inactive</li>
-                    <li>• Select a reasonable date range to avoid timeouts</li>
+                    <li>✅ <strong>Format:</strong> Changed to 11x17 paper, 5 across x 8 down (40 tickets per page)</li>
+                    <li>✅ <strong>Phone Numbers:</strong> Improved detection from contact_id field</li>
+                    <li>✅ <strong>Date Filtering:</strong> Fixed timezone handling for accurate month filtering</li>
+                    <li>🔧 <strong>Debug Tool:</strong> Use "Debug Ticket Data" to analyze your data quality</li>
+                    <li>📅 Default date range set to July 2025</li>
                 </ul>
             </div>
         </div>
