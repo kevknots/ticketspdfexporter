@@ -140,7 +140,7 @@ async function streamProcessTickets(
             }
 
             // Add logo
-            doc.addImage(logoDataURL, 'PNG', item.logoX, item.logoY, item.logoWidth, item.logoHeight, undefined, 'FAST');
+            doc.addImage(logoDataURL, 'PNG', item.logoX, item.logoY, item.logoWidth, item.logoHeight);
 
             // Batch text operations
             const textY = item.logoY + item.logoHeight + 3;
@@ -239,7 +239,7 @@ export async function GET(req: NextRequest) {
     const logoDataURL = `data:image/png;base64,${logoImage}`;
 
     // 🚀 STREAMING: Process tickets in chunks to avoid memory issues
-    const CHUNK_SIZE = 1500; // Process 500 tickets at a time
+    const CHUNK_SIZE = 500; // Process 500 tickets at a time
     const actualLimit = limit ? Math.min(parseInt(limit), totalCount) : totalCount;
     
     let processedTotal = 0;
