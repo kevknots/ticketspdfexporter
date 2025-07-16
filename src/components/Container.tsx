@@ -125,39 +125,6 @@ export function Container(){
         
         setTimeout(() => setLoading(false), testMode ? 3000 : 8000);
     };
-        if (selectedType === '') {
-            alert('Select tickets type first!');
-            return;
-        }
-        
-        if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-            alert('Invalid date selected!');
-            return;
-        }
-        
-        if (from >= to) {
-            alert('From date must be before To date!');
-            return;
-        }
-        
-        setLoading(true);
-        const fromAPI = formatDateForAPI(from);
-        const toAPI = formatDateForAPI(to);
-        
-        const limitParam = testMode ? '&limit=100' : '';
-        
-        const pdfUrl = `/api/generate?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${selectedType}${limitParam}`;
-        console.log('🚀 Opening PDF URL:', pdfUrl);
-        console.log('📊 Performance mode:', testMode ? 'Test (100 tickets max)' : 'Full');
-        
-        if (!testMode) {
-            alert('📄 Generating 11x17 PORTRAIT PDF... This should be much faster now! Check console for progress.');
-        }
-        
-        window.open(pdfUrl, '_blank');
-        
-        setTimeout(() => setLoading(false), testMode ? 3000 : 8000);
-    };
 
     return (
         <div className="p-8 max-w-4xl mx-auto">
