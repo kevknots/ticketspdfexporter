@@ -88,14 +88,33 @@ export function DateSelector({to, from, setTo, setFrom}: DateSelectorProps) {
                     </button>
                     <button
                         onClick={() => {
-                            const now = new Date();
-                            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                            setFrom(monthAgo);
-                            setTo(now);
+                            // July 1-15, 2025
+                            setFrom(new Date(2025, 6, 1, 0, 0, 0)); // July 1st start of day
+                            setTo(new Date(2025, 6, 15, 23, 59, 59)); // July 15th end of day
                         }}
-                        className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border"
+                        className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 rounded border text-green-800"
                     >
-                        Last 30 Days
+                        July 1-15, 2025
+                    </button>
+                    <button
+                        onClick={() => {
+                            // July 16-31, 2025
+                            setFrom(new Date(2025, 6, 16, 0, 0, 0)); // July 16th start of day
+                            setTo(new Date(2025, 6, 31, 23, 59, 59)); // July 31st end of day
+                        }}
+                        className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 rounded border text-green-800"
+                    >
+                        July 16-31, 2025
+                    </button>
+                    <button
+                        onClick={() => {
+                            // Entire July 2025
+                            setFrom(new Date(2025, 6, 1, 0, 0, 0)); // July 1st start of day
+                            setTo(new Date(2025, 6, 31, 23, 59, 59)); // July 31st end of day
+                        }}
+                        className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 rounded border text-blue-800 font-semibold"
+                    >
+                        All of July 2025
                     </button>
                     <button
                         onClick={() => {
