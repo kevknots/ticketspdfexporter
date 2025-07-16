@@ -27,7 +27,7 @@ type DebugData = {
     }>;
 };
 
-export function Container(){
+export async function Container(){
     // 🔧 FIXED: Initialize with July 2025 date range by default
     const now = new Date();
     const [to, setTo] = useState(now);
