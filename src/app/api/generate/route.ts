@@ -1,4 +1,4 @@
-// src/app/api/generate/route.ts - FAST PARALLEL PROCESSING
+// src/app/api/generate/route.ts - CORRECT 11x17 FORMAT
 
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
@@ -49,17 +49,19 @@ async function processTicketBatch(tickets: any[]): Promise<any[]> {
         }
 
         let phoneNumber = '';
-        if (ticket.phone_number?.trim()) {
+        if (ticket.phone_number && ticket.phone_number.trim()) {
             phoneNumber = ticket.phone_number.trim();
-        } else if (ticket.contact_id) {
+        } else if (ticket.contact_id && !ticket.contact_id.includes('@')) {
             const extracted = extractPhoneFromContactId(ticket.contact_id);
-            if (extracted) phoneNumber = extracted;
+            if (extracted) {
+                phoneNumber = extracted;
+            }
         }
 
         let emailAddress = '';
-        if (ticket.email?.trim()) {
+        if (ticket.email && ticket.email.trim()) {
             emailAddress = ticket.email.trim();
-        } else if (ticket.contact_id?.includes('@')) {
+        } else if (ticket.contact_id && ticket.contact_id.includes('@')) {
             emailAddress = ticket.contact_id;
         }
 
@@ -68,6 +70,10 @@ async function processTicketBatch(tickets: any[]): Promise<any[]> {
         const displayEmail = emailAddress && emailAddress !== phoneNumber 
             ? (emailAddress.length > 30 ? emailAddress.substring(0, 30) + '...' : emailAddress)
             : '';
+
+        if (ticket.ticket_number) {
+            console.log(`Phone debug - ${ticket.ticket_number}: phone_number="${ticket.phone_number}", contact_id="${ticket.contact_id}", extracted="${phoneNumber}"`);
+        }
 
         return {
             ticket_number: ticket.ticket_number ?? '',
@@ -159,24 +165,31 @@ export async function GET(req: NextRequest) {
     console.log(`✅ Processed all tickets in ${Date.now() - processingStart}ms`);
 
     const pdfStart = Date.now();
+    
+    // 🔧 FIXED: 11x17 PORTRAIT format (11" wide x 17" tall)
     const doc = new jsPDF({
-        orientation: 'landscape',
+        orientation: 'portrait',  // FIXED: Changed from landscape to portrait
         unit: 'mm',
-        format: [279.4, 431.8],
+        format: [279.4, 431.8],  // 11" wide (279.4mm) x 17" tall (431.8mm)
         compress: true
     });
 
-    const pageWidth = 431.8, pageHeight = 279.4;
-    const ticketsPerRow = 5, ticketsPerColumn = 8;
+    // 🔧 FIXED: Layout for 11x17 PORTRAIT (5 across, 8 down = 40 tickets)
+    const pageWidth = 279.4;   // 11 inches in mm
+    const pageHeight = 431.8;  // 17 inches in mm
+    const ticketsPerRow = 5;
+    const ticketsPerColumn = 8;
     const totalTicketsPerPage = 40;
-    const marginX = 8, marginY = 6, startX = 10, startY = 10;
+    const marginX = 6, marginY = 8, startX = 8, startY = 10;
     
     const availableWidth = pageWidth - (2 * startX) - ((ticketsPerRow - 1) * marginX);
     const availableHeight = pageHeight - (2 * startY) - ((ticketsPerColumn - 1) * marginY);
-    const ticketWidth = availableWidth / ticketsPerRow;
-    const ticketHeight = availableHeight / ticketsPerColumn;
+    const ticketWidth = availableWidth / ticketsPerRow;   // ~50mm per ticket
+    const ticketHeight = availableHeight / ticketsPerColumn; // ~50mm per ticket
     const logoWidth = ticketWidth * 0.6;
     const logoHeight = ticketHeight * 0.25;
+
+    console.log(`📐 11x17 PORTRAIT Layout: ${ticketWidth.toFixed(1)}mm x ${ticketHeight.toFixed(1)}mm per ticket`);
 
     for (let index = 0; index < processedTickets.length; index++) {
         const ticket = processedTickets[index];
@@ -196,22 +209,22 @@ export async function GET(req: NextRequest) {
         const logoY = yPos + 2;
         doc.addImage(logoDataURL, logoX, logoY, logoWidth, logoHeight);
 
-        doc.setFontSize(10).setFont('Helvetica', 'bold');
+        doc.setFontSize(9).setFont('Helvetica', 'bold');
         const ticketY = logoY + logoHeight + 3;
         doc.text(ticket.ticket_number, xPos + ticketWidth/2, ticketY, {align: 'center'});
 
         if (ticket.displayName) {
-            doc.setFontSize(8).setFont('Helvetica', 'bold');
+            doc.setFontSize(7).setFont('Helvetica', 'bold');
             doc.text(ticket.displayName, xPos + ticketWidth/2, ticketY + 4, {align: 'center'});
         }
 
         if (ticket.formattedPhone) {
-            doc.setFontSize(7).setFont('Helvetica', 'normal');
+            doc.setFontSize(6).setFont('Helvetica', 'normal');
             doc.text(ticket.formattedPhone, xPos + ticketWidth/2, ticketY + 8, {align: 'center'});
         }
 
         if (ticket.displayEmail) {
-            doc.setFontSize(6).setFont('Helvetica', 'normal');
+            doc.setFontSize(5).setFont('Helvetica', 'normal');
             doc.text(ticket.displayEmail, xPos + ticketWidth/2, ticketY + 11, {align: 'center'});
         }
 
