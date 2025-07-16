@@ -3,7 +3,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import jsPDF from 'jspdf';
-
+ 
 const logoCache = new Map<string, string>();
 
 const getImageData = async (url: string): Promise<string> => {
