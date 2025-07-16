@@ -57,7 +57,74 @@ export function Container(){
         }
     };
 
+    const debugPhones = async () => {
+        if (!selectedType) {
+            alert('Select a ticket type first!');
+            return;
+        }
+        
+        try {
+            setLoading(true);
+            const res = await fetch(`/api/debug-phones?type=${selectedType}`);
+            const data = await res.json();
+            
+            console.log('📱 PHONE DEBUG RESULTS:', data);
+            
+            let alertMsg = `📱 Phone Debug Results for ${selectedType} tickets:\n\n`;
+            alertMsg += `Found ${data.count} recent tickets\n\n`;
+            
+            data.tickets.slice(0, 5).forEach((ticket: any) => {
+                alertMsg += `${ticket.ticket_number}: ${ticket.name}\n`;
+                alertMsg += `  Phone: ${ticket.all_fields.phone_number || 'NONE'}\n`;
+                alertMsg += `  Contact: ${ticket.all_fields.contact_id || 'NONE'}\n`;
+                alertMsg += `  Potential phones: ${ticket.phone_analysis.potential_phone_fields.length}\n\n`;
+            });
+            
+            alertMsg += 'Check browser console for full details!';
+            alert(alertMsg);
+            
+        } catch (err) {
+            console.error('Error debugging phones:', err);
+            alert('Error debugging phones. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const generatePDF = () => {
+        if (selectedType === '') {
+            alert('Select tickets type first!');
+            return;
+        }
+        
+        if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+            alert('Invalid date selected!');
+            return;
+        }
+        
+        if (from >= to) {
+            alert('From date must be before To date!');
+            return;
+        }
+        
+        setLoading(true);
+        const fromAPI = formatDateForAPI(from);
+        const toAPI = formatDateForAPI(to);
+        
+        const limitParam = testMode ? '&limit=100' : '';
+        
+        const pdfUrl = `/api/generate?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${selectedType}${limitParam}`;
+        console.log('🚀 Opening PDF URL:', pdfUrl);
+        console.log('📊 Performance mode:', testMode ? 'Test (100 tickets max)' : 'Full');
+        
+        if (!testMode) {
+            alert('📄 Generating 11x17 PORTRAIT PDF... Check console for phone debugging info!');
+        }
+        
+        window.open(pdfUrl, '_blank');
+        
+        setTimeout(() => setLoading(false), testMode ? 3000 : 8000);
+    };
         if (selectedType === '') {
             alert('Select tickets type first!');
             return;
@@ -171,6 +238,14 @@ export function Container(){
                         </button>
                         
                         <button 
+                            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg disabled:opacity-50"
+                            onClick={debugPhones}
+                            disabled={!selectedType}
+                        >
+                            📱 Debug Phone Numbers
+                        </button>
+                        
+                        <button 
                             className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-lg disabled:opacity-50"
                             onClick={() => expireTickets(selectedType)}
                             disabled={!selectedType}
@@ -185,10 +260,10 @@ export function Container(){
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <h3 className="font-semibold text-green-800 mb-2">📄 PDF Format Information:</h3>
                 <div className="text-sm text-green-700 space-y-1">
-                    <div><strong>Paper Size:</strong> 11" × 17" (Portrait orientation)</div>
+                    <div><strong>Paper Size:</strong> 11&quot; × 17&quot; (Portrait orientation)</div>
                     <div><strong>Layout:</strong> 5 tickets across × 8 tickets down = 40 tickets per page</div>
                     <div><strong>Ticket Size:</strong> Approximately 50mm × 50mm each</div>
-                    <div><strong>Orientation:</strong> PORTRAIT (11" wide, 17" tall)</div>
+                    <div><strong>Orientation:</strong> PORTRAIT (11&quot; wide, 17&quot; tall)</div>
                 </div>
             </div>
 
