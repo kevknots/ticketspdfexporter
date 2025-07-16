@@ -130,26 +130,33 @@ async function streamProcessTickets(
                 continue;
             }
 
-            doc.addImage(logoDataURL, 'PNG', item.logoX, item.logoY, item.logoWidth, item.logoHeight);
+            // Ensure all parameters are numbers
+            const logoX = Number(item.logoX);
+            const logoY = Number(item.logoY);
+            const logoW = Number(item.logoWidth);
+            const logoH = Number(item.logoHeight);
+            const ticketW = Number(item.ticketWidth);
 
-            const textY = item.logoY + item.logoHeight + 3;
+            doc.addImage(logoDataURL, logoX, logoY, logoW, logoH);
+
+            const textY = logoY + logoH + 3;
             
             doc.setFontSize(10).setFont('Helvetica', 'bold');
-            doc.text(item.ticket_number, item.xPos + item.ticketWidth/2, textY, {align: 'center'});
+            doc.text(item.ticket_number, item.xPos + ticketW/2, textY, {align: 'center'});
 
             if (item.displayName) {
                 doc.setFontSize(8).setFont('Helvetica', 'bold');
-                doc.text(item.displayName, item.xPos + item.ticketWidth/2, textY + 4, {align: 'center'});
+                doc.text(item.displayName, item.xPos + ticketW/2, textY + 4, {align: 'center'});
             }
 
             if (item.formattedPhone) {
                 doc.setFontSize(7).setFont('Helvetica', 'normal');
-                doc.text(item.formattedPhone, item.xPos + item.ticketWidth/2, textY + 8, {align: 'center'});
+                doc.text(item.formattedPhone, item.xPos + ticketW/2, textY + 8, {align: 'center'});
             }
 
             if (item.displayEmail) {
                 doc.setFontSize(6).setFont('Helvetica', 'normal');
-                doc.text(item.displayEmail, item.xPos + item.ticketWidth/2, textY + 11, {align: 'center'});
+                doc.text(item.displayEmail, item.xPos + ticketW/2, textY + 11, {align: 'center'});
             }
         }
 
