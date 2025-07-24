@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 
+// Define the DebugTicket interface based on the fields selected in Prisma queries
 interface DebugTicket {
     ticket_number: string | null;
     order_id: string | null;
@@ -22,7 +23,8 @@ export const maxDuration = 300;
 
 async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter?: { gte: Date; lte: Date }) {
     // Ensure dateFilter is always defined for our specific analysis
-    const whereBase = dateFilter ? {
+    // Use Prisma's WhereInput type for better type safety if needed, but this inline structure works
+    const whereBase: any = dateFilter ? {
         created_at: {
             gte: dateFilter.gte,
             lte: dateFilter.lte
@@ -35,7 +37,11 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
     if (tableName === 'tickets') {
         // --- Specific Analysis for Client's Concerns (July 1-10, 2025) ---
         // Define the sub-ranges if the overall filter matches the client period
-        const isClientPeriod = dateFilter?.gte?.toISOString()?.startsWith('2025-07-01T') && dateFilter?.lte?.toISOString()?.startsWith('2025-07-10T');
+        // Note: This check relies on the exact format from the API call. Consider using date comparison logic instead.
+        const isClientPeriod = dateFilter?.gte && dateFilter?.lte &&
+                               dateFilter.gte.getTime() === new Date('2025-07-01T00:00:00Z').getTime() &&
+                               dateFilter.lte.getTime() === new Date('2025-07-10T23:59:59Z').getTime();
+
         let july1to8Analysis = null;
         let july9to10Analysis = null;
 
@@ -214,7 +220,9 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
         });
 
         // Return enhanced analysis including specific client period checks
+        // Type assertion for samples to DebugTicket[]
         const typedSamples = samples as DebugTicket[];
+        // Calculate contactIdPatterns based on the actual samples retrieved
         const contactIdPatterns = {
             total: Math.min(20, typedSamples.length), // Adjust based on actual samples taken
             email: typedSamples.filter(t => t.contact_id?.includes('@')).length,
@@ -324,9 +332,11 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
             }
         });
 
+         // Type assertion for samples to DebugTicket[]
          const typedSamples = samples as DebugTicket[];
+        // Calculate contactIdPatterns based on the actual samples retrieved
         const contactIdPatterns = {
-            total: Math.min(20, typedSamples.length),
+            total: Math.min(20, typedSamples.length), // Adjust based on actual samples taken
             email: typedSamples.filter(t => t.contact_id?.includes('@')).length,
             phone: typedSamples.filter(t => t.contact_id && !t.contact_id.includes('@') && /^\d{10,11}$/.test(t.contact_id.replace(/\D/g, ''))).length,
             null: typedSamples.filter(t => !t.contact_id).length,
@@ -349,7 +359,7 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
                 order_id: ticket.order_id,
                 created_at: ticket.created_at?.toISOString(),
                 created_at_est: ticket.created_at?.toLocaleString("en-US", { timeZone: "America/New_York" }),
-                 order_date: ticket.order_date ? ticket.order_date.toISOString().split('T')[0] : null,
+                 order_date: ticket.order_date ? ticket.order_date.toISOString().split('T')[0] : null, // Format as YYYY-MM-DD
                 phone_number: ticket.phone_number,
                 email: ticket.email,
                 contact_id: ticket.contact_id,
@@ -372,21 +382,22 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
 export async function GET(req: NextRequest) {
     try {
         const url = new URL(req.url);
-        const lte = url.searchParams.get('lte');
-        const gte = url.searchParams.get('gte');
+        const lteParam = url.searchParams.get('lte');
+        const gteParam = url.searchParams.get('gte');
         const type = url.searchParams.get('type'); // 'badd', 'winme', or null for both
-        console.log('🔍 COMPREHENSIVE DEBUG:', { lte, gte, type });
+        console.log('🔍 COMPREHENSIVE DEBUG:', { lteParam, gteParam, type });
 
         // Parse dates if provided
         let dateFilter = undefined;
         let dateAnalysis = null;
-        if (lte && gte) {
-            const lteDate = new Date(lte);
-            const gteDate = new Date(gte);
-            if (!isNaN(lteDate.getTime()) && !isNaN(gteDate.getTime())) {
+        if (lteParam && gteParam) {
+            const lteDate = new Date(lteParam);
+            const gteDate = new Date(gteParam);
+            // Validate dates
+            if (!isNaN(lteDate.getTime()) && !isNaN(gteDate.getTime()) && lteDate >= gteDate) {
                 dateFilter = { lte: lteDate, gte: gteDate };
                 dateAnalysis = {
-                    input: { lte, gte },
+                    input: { lteParam, gteParam },
                     parsed: {
                         lte: lteDate.toISOString(),
                         gte: gteDate.toISOString(),
@@ -394,6 +405,10 @@ export async function GET(req: NextRequest) {
                         gte_est: gteDate.toLocaleString("en-US", { timeZone: "America/New_York" })
                     }
                 };
+            } else {
+                 console.warn('Invalid date parameters provided or lte < gte');
+                 // Optionally return an error response for invalid dates
+                 // return new Response(JSON.stringify({ error: "Invalid date parameters. Ensure lte >= gte." }), { status: 400 });
             }
         }
 
@@ -415,10 +430,24 @@ export async function GET(req: NextRequest) {
             tickets_winme: null as any
         };
         if (!type || type === 'badd') {
-            let boundaryWhere = { status: 'active' };
+            // --- FIX: Correctly type boundaryWhere and apply date filter ---
+            // Start with the base condition
+            let boundaryWhere: any = { status: 'active' };
+            // If a dateFilter exists for the overall query, apply it to the boundary check as well
+            // This ensures we find the oldest/newest within the requested range
             if (dateFilter) {
-                 boundaryWhere = { ...boundaryWhere, created_at: dateFilter }; // Apply filter if exists for boundary check within range
+                 boundaryWhere = {
+                     ...boundaryWhere,
+                     created_at: {
+                         gte: dateFilter.gte,
+                         lte: dateFilter.lte
+                     }
+                 };
+                 // Alternative spread approach (if dateFilter structure matched Prisma field structure perfectly)
+                 // boundaryWhere = { ...boundaryWhere, created_at: dateFilter };
+                 // However, explicitly defining gte/lte is clearer and matches Prisma's expectation
             }
+            // --- END FIX ---
             const oldestTicket = await db.tickets.findFirst({
                 where: boundaryWhere,
                 orderBy: { created_at: 'asc' },
@@ -443,7 +472,15 @@ export async function GET(req: NextRequest) {
             };
         }
         // Boundary check for winme if needed
-        // if (type === 'winme') { ... }
+        // if (type === 'winme') {
+        //    let boundaryWhere: any = { status: 'active' };
+        //    if (dateFilter) {
+        //        boundaryWhere = { ...boundaryWhere, created_at: dateFilter };
+        //    }
+        //    const oldestWinme = await db.tickets_winme.findFirst({...});
+        //    ...
+        // }
+
 
         // Summary (only for relevant tables)
         const totalAnalyzed = results.reduce((sum, r) => sum + r.totalCount, 0);
@@ -475,7 +512,10 @@ export async function GET(req: NextRequest) {
             dataIssues: [],
             recommendations: [
                 // Add dynamic recommendations based on findings if needed
-            ].filter(Boolean)
+                totalPhoneInContactId > 0 && `${totalPhoneInContactId} tickets might have phone numbers in contact_id field`,
+                totalWithoutPhone > 0 && `${totalWithoutPhone} tickets missing phones`,
+                totalWithoutEmail > 0 && `${totalWithoutEmail} tickets missing emails`
+            ].filter(Boolean) // Filter out false/undefined recommendations
         };
 
         console.log('📊 Debug Summary for Client Period:', {
