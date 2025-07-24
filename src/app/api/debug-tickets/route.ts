@@ -137,7 +137,9 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
                     phone_number: true,
                     email: true,
                     name: true,
-                    product_name: true
+                    product_name: true,
+                    first_name: true,
+                    last_name: true,
                  }
             });
 
