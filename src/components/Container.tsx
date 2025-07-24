@@ -3,36 +3,43 @@ import { CircularProgress } from "@chakra-ui/react";
 import { useState } from "react";
 import { DateSelector } from "./DateSelector"
 
-// 🔧 Helper function to convert date to EST and format for API
-const formatDateForEST = (date: Date): string => {
-    // Create a new date in EST timezone
-    const estDate = new Date(date.toLocaleString("en-US", {timeZone: "America/New_York"}));
-    return estDate.toISOString();
+const formatDateForAPI = (date: Date): string => {
+    return date.toISOString();
 };
 
 export function Container(){
-    // 🔧 FIXED: Initialize with current EST time
     const now = new Date();
     const [to, setTo] = useState(now);
-    const [from, setFrom] = useState(new Date(now.getTime() - 24 * 60 * 60 * 1000)); // 24 hours ago
+    const july1st = new Date(2025, 6, 1);
+    const [from, setFrom] = useState(july1st);
     const [loading, setLoading] = useState(false);
     const [selectedType, setSelectedType] = useState('');
+    const [testMode, setTestMode] = useState(false);
     
-    // 🔧 IMPROVED: Better date formatting for debugging
     console.log('Selected dates:', {
         from: from.toLocaleString("en-US", {timeZone: "America/New_York"}),
         to: to.toLocaleString("en-US", {timeZone: "America/New_York"}),
-        fromISO: formatDateForEST(from),
-        toISO: formatDateForEST(to)
+        fromISO: formatDateForAPI(from),
+        toISO: formatDateForAPI(to)
     });
     
     const expireTickets = async (type: string) => {
         try {
-            setLoading(true);
-            const fromEST = formatDateForEST(from);
-            const toEST = formatDateForEST(to);
+            if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+                alert('Invalid date selected!');
+                return;
+            }
             
-            const res = await fetch(`/api/expire_505?lte=${toEST}&gte=${fromEST}&type=${type}`, {
+            if (from >= to) {
+                alert('From date must be before To date!');
+                return;
+            }
+            
+            setLoading(true);
+            const fromAPI = formatDateForAPI(from);
+            const toAPI = formatDateForAPI(to);
+            
+            const res = await fetch(`/api/expire_505?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${type}`, {
                 method: 'PUT'
             });
             
@@ -50,27 +57,78 @@ export function Container(){
         }
     };
 
+    const debugPhones = async () => {
+        if (!selectedType) {
+            alert('Select a ticket type first!');
+            return;
+        }
+        
+        try {
+            setLoading(true);
+            const res = await fetch(`/api/debug-phones?type=${selectedType}`);
+            const data = await res.json();
+            
+            console.log('📱 PHONE DEBUG RESULTS:', data);
+            
+            let alertMsg = `📱 Phone Debug Results for ${selectedType} tickets:\n\n`;
+            alertMsg += `Found ${data.count} recent tickets\n\n`;
+            
+            data.tickets.slice(0, 5).forEach((ticket: any) => {
+                alertMsg += `${ticket.ticket_number}: ${ticket.name}\n`;
+                alertMsg += `  Phone: ${ticket.all_fields.phone_number || 'NONE'}\n`;
+                alertMsg += `  Contact: ${ticket.all_fields.contact_id || 'NONE'}\n`;
+                alertMsg += `  Potential phones: ${ticket.phone_analysis.potential_phone_fields.length}\n\n`;
+            });
+            
+            alertMsg += 'Check browser console for full details!';
+            alert(alertMsg);
+            
+        } catch (err) {
+            console.error('Error debugging phones:', err);
+            alert('Error debugging phones. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const generatePDF = () => {
         if (selectedType === '') {
-            alert("Select tickets type first!");
+            alert('Select tickets type first!');
+            return;
+        }
+        
+        if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+            alert('Invalid date selected!');
+            return;
+        }
+        
+        if (from >= to) {
+            alert('From date must be before To date!');
             return;
         }
         
         setLoading(true);
-        const fromEST = formatDateForEST(from);
-        const toEST = formatDateForEST(to);
+        const fromAPI = formatDateForAPI(from);
+        const toAPI = formatDateForAPI(to);
         
-        // Open PDF in new window
-        const pdfUrl = `/api/generate?lte=${toEST}&gte=${fromEST}&type=${selectedType}`;
+        const limitParam = testMode ? '&limit=100' : '';
+        
+        const pdfUrl = `/api/generate?lte=${encodeURIComponent(toAPI)}&gte=${encodeURIComponent(fromAPI)}&type=${selectedType}${limitParam}`;
+        console.log('🚀 Opening PDF URL:', pdfUrl);
+        console.log('📊 Performance mode:', testMode ? 'Test (100 tickets max)' : 'Full');
+        
+        if (!testMode) {
+            alert('📄 Generating 11x17 PORTRAIT PDF... Check console for phone debugging info!');
+        }
+        
         window.open(pdfUrl, '_blank');
         
-        // Reset loading after a short delay
-        setTimeout(() => setLoading(false), 2000);
+        setTimeout(() => setLoading(false), testMode ? 3000 : 8000);
     };
 
     return (
         <div className="p-8 max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-6">Ticket PDF Generator</h1>
+            <h1 className="text-2xl font-bold mb-6">Ticket PDF Generator - 11x17 PORTRAIT Format</h1>
             
             {/* Date Selection */}
             <div className="bg-gray-50 p-6 rounded-lg mb-6">
@@ -104,8 +162,26 @@ export function Container(){
                 </select>
             </div>
 
+            {/* Test Mode Option */}
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <label className="flex items-center space-x-2">
+                    <input
+                        type="checkbox"
+                        checked={testMode}
+                        onChange={(e) => setTestMode(e.target.checked)}
+                        className="rounded"
+                    />
+                    <span className="text-sm font-medium">
+                        🚀 Test Mode (Generate only first 100 tickets for quick testing)
+                    </span>
+                </label>
+                <p className="text-xs text-blue-600 mt-1">
+                    Enable this for quick testing. Disable for full production PDFs.
+                </p>
+            </div>
+
             {/* Action Buttons */}
-            <div className="flex gap-4 flex-wrap">
+            <div className="flex gap-4 flex-wrap mb-6">
                 {loading ? (
                     <div className="flex items-center gap-2">
                         <CircularProgress isIndeterminate color='green.300' size="sm" />
@@ -114,11 +190,26 @@ export function Container(){
                 ) : (
                     <>
                         <button 
-                            className="px-6 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-lg disabled:opacity-50"
+                            className={`px-6 py-3 text-white rounded-lg transition-colors shadow-lg disabled:opacity-50 ${
+                                testMode 
+                                    ? 'bg-orange-500 hover:bg-orange-600' 
+                                    : 'bg-teal-500 hover:bg-teal-600'
+                            }`}
                             onClick={generatePDF}
                             disabled={!selectedType}
                         >
-                            📄 Generate PDF for Date Range
+                            {testMode 
+                                ? '🚀 Generate Test PDF (100 tickets)' 
+                                : '📄 Generate 11x17 PORTRAIT PDF (40 per page)'
+                            }
+                        </button>
+                        
+                        <button 
+                            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg disabled:opacity-50"
+                            onClick={debugPhones}
+                            disabled={!selectedType}
+                        >
+                            📱 Debug Phone Numbers
                         </button>
                         
                         <button 
@@ -132,6 +223,17 @@ export function Container(){
                 )}
             </div>
 
+            {/* Format Info */}
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h3 className="font-semibold text-green-800 mb-2">📄 PDF Format Information:</h3>
+                <div className="text-sm text-green-700 space-y-1">
+                    <div><strong>Paper Size:</strong> 11&quot; × 17&quot; (Portrait orientation)</div>
+                    <div><strong>Layout:</strong> 5 tickets across × 8 tickets down = 40 tickets per page</div>
+                    <div><strong>Ticket Size:</strong> Approximately 50mm × 50mm each</div>
+                    <div><strong>Orientation:</strong> PORTRAIT (11&quot; wide, 17&quot; tall)</div>
+                </div>
+            </div>
+
             {/* Instructions */}
             <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <h3 className="font-semibold text-yellow-800 mb-2">Instructions:</h3>
@@ -140,6 +242,10 @@ export function Container(){
                     <li>• PDF generation opens in a new tab</li>
                     <li>• Expire function permanently marks tickets as inactive</li>
                     <li>• Select a reasonable date range to avoid timeouts</li>
+                    <li>• <strong>NEW:</strong> 11x17 PORTRAIT format (not landscape)</li>
+                    <li>• Phone numbers extracted from both phone_number and contact_id fields</li>
+                    <li>• Use Test Mode for quick validation before generating full PDFs</li>
+                    <li>• Check browser console for phone number debugging info</li>
                 </ul>
             </div>
         </div>
