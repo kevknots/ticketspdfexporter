@@ -15,7 +15,7 @@ interface DebugTicket {
     name: string | null;
     status: string | null;
 }
-export const duration = 300;
+export const maxDuration = 300;
 
 async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter?: { gte: Date; lte: Date }) {
     const where = dateFilter ? {
