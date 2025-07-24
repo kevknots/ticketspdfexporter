@@ -16,6 +16,7 @@ interface DebugTicket {
     status: string | null;
 }
 
+
 async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter?: { gte: Date; lte: Date }) {
     const where = dateFilter ? {
         created_at: {
@@ -25,50 +26,111 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
         status: 'active'
     } : { status: 'active' };
 
-    // Get counts
-    const totalCount = await db[tableName].count({ where });
-    
-    // Count phone coverage
-    const withPhoneCount = await db[tableName].count({
-        where: {
-            ...where,
-            NOT: [
-                { phone_number: null },
-                { phone_number: '' }
-            ]
-        }
-    });
+    // --- Fix: Use conditional logic to access the specific model ---
+    let totalCount, withPhoneCount, withoutPhoneCount, samples, phoneInContactId;
 
-    const withoutPhoneCount = await db[tableName].count({
-        where: {
-            ...where,
-            OR: [
-                { phone_number: null },
-                { phone_number: '' }
-            ]
-        }
-    });
+    if (tableName === 'tickets') {
+        // Access the 'tickets' model directly
+        totalCount = await db.tickets.count({ where });
+        withPhoneCount = await db.tickets.count({
+            where: {
+                ...where,
+                NOT: [
+                    { phone_number: null },
+                    { phone_number: '' }
+                ]
+            }
+        });
+        withoutPhoneCount = await db.tickets.count({
+            where: {
+                ...where,
+                OR: [
+                    { phone_number: null },
+                    { phone_number: '' }
+                ]
+            }
+        });
+        samples = await db.tickets.findMany({
+            where,
+            take: 20,
+            orderBy: { created_at: 'desc' },
+            select: {
+                ticket_number: true,
+                order_id: true,
+                created_at: true,
+                phone_number: true,
+                email: true,
+                contact_id: true,
+                first_name: true,
+                last_name: true,
+                name: true,
+                status: true
+            }
+        });
+         phoneInContactId = await db.tickets.count({
+            where: {
+                ...where,
+                AND: [
+                    { OR: [{ phone_number: null }, { phone_number: '' }] },
+                    { contact_id: { not: null } },
+                    { NOT: { contact_id: { contains: '@' } } }
+                ]
+            }
+        });
+    } else { // tableName === 'tickets_winme'
+        // Access the 'tickets_winme' model directly
+        totalCount = await db.tickets_winme.count({ where });
+        withPhoneCount = await db.tickets_winme.count({
+            where: {
+                ...where,
+                NOT: [
+                    { phone_number: null },
+                    { phone_number: '' }
+                ]
+            }
+        });
+        withoutPhoneCount = await db.tickets_winme.count({
+            where: {
+                ...where,
+                OR: [
+                    { phone_number: null },
+                    { phone_number: '' }
+                ]
+            }
+        });
+        samples = await db.tickets_winme.findMany({
+            where,
+            take: 20,
+            orderBy: { created_at: 'desc' },
+            select: {
+                ticket_number: true,
+                order_id: true,
+                created_at: true,
+                phone_number: true,
+                email: true,
+                contact_id: true,
+                first_name: true,
+                last_name: true,
+                name: true,
+                status: true
+            }
+        });
+        phoneInContactId = await db.tickets_winme.count({
+            where: {
+                ...where,
+                AND: [
+                    { OR: [{ phone_number: null }, { phone_number: '' }] },
+                    { contact_id: { not: null } },
+                    { NOT: { contact_id: { contains: '@' } } }
+                ]
+            }
+        });
+    }
 
-    // Get samples
-    const samples = await db[tableName].findMany({
-        where,
-        take: 20,
-        orderBy: { created_at: 'desc' },
-        select: {
-            ticket_number: true,
-            order_id: true,
-            created_at: true,
-            phone_number: true,
-            email: true,
-            contact_id: true,
-            first_name: true,
-            last_name: true,
-            name: true,
-            status: true
-        }
-    }) as DebugTicket[];
+    // Type assertion for samples to DebugTicket[] is still needed
+    const typedSamples = samples as DebugTicket[];
 
-    // Analyze contact_id patterns
+    // --- Fix: The rest of the function uses typedSamples instead of samples ---
     const contactIdPatterns = {
         total: 0,
         email: 0,
@@ -77,7 +139,7 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
         other: 0
     };
 
-    samples.forEach(ticket => {
+    typedSamples.forEach(ticket => {
         if (!ticket.contact_id) {
             contactIdPatterns.null++;
         } else if (ticket.contact_id.includes('@')) {
@@ -90,17 +152,6 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
         contactIdPatterns.total++;
     });
 
-    // Find tickets where phone might be in contact_id
-    const phoneInContactId = await db[tableName].count({
-        where: {
-            ...where,
-            AND: [
-                { OR: [{ phone_number: null }, { phone_number: '' }] },
-                { contact_id: { not: null } },
-                { NOT: { contact_id: { contains: '@' } } }
-            ]
-        }
-    });
 
     return {
         tableName,
@@ -110,11 +161,11 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
         phonePercentage: totalCount > 0 ? ((withPhoneCount / totalCount) * 100).toFixed(2) : '0',
         phoneInContactId,
         contactIdPatterns,
-        samples: samples.map(ticket => ({
+        samples: typedSamples.map(ticket => ({
             ticket_number: ticket.ticket_number,
             order_id: ticket.order_id,
             created_at: ticket.created_at?.toISOString(),
-            created_at_est: ticket.created_at?.toLocaleString("en-US", {timeZone: "America/New_York"}),
+            created_at_est: ticket.created_at?.toLocaleString("en-US", { timeZone: "America/New_York" }),
             phone_number: ticket.phone_number,
             email: ticket.email,
             contact_id: ticket.contact_id,
@@ -125,13 +176,12 @@ async function analyzeTickets(tableName: 'tickets' | 'tickets_winme', dateFilter
                 has_email: !!(ticket.email && ticket.email.trim()),
                 contact_is_email: ticket.contact_id?.includes('@') || false,
                 contact_is_phone: ticket.contact_id ? /^\d{10,11}$/.test(ticket.contact_id.replace(/\D/g, '')) : false,
-                potential_phone: ticket.phone_number || 
+                potential_phone: ticket.phone_number ||
                     (ticket.contact_id && !ticket.contact_id.includes('@') ? ticket.contact_id : null)
             }
         }))
     };
 }
-
 export async function GET(req: NextRequest) {
     try {
         const url = new URL(req.url);
