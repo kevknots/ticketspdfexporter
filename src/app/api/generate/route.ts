@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
         (async () => {
             const queryOptions = {
                 where: {
-                    created_at: { lte: lteDate, gte: gteDate },
+                    order_date: { lte: lteDate, gte: gteDate },
                     status: 'active'
                 },
                 select: {
