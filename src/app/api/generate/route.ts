@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
         (async () => {
             const queryOptions = {
                 where: {
-                    order_date: { lte: lteDate, gte: gteDate },
+                    created_at: { lte: lteDate, gte: gteDate },
                     status: 'active'
                 },
                 select: {
@@ -197,37 +197,41 @@ export async function GET(req: NextRequest) {
         if (index > 0 && index % totalTicketsPerPage === 0) {
             doc.addPage();
         }
-
+    
         const pageIndex = index % totalTicketsPerPage;
         const row = Math.floor(pageIndex / ticketsPerRow);
         const col = pageIndex % ticketsPerRow;
         
         const xPos = startX + col * (ticketWidth + marginX);
         const yPos = startY + row * (ticketHeight + marginY);
-
+    
         const logoX = xPos + (ticketWidth - logoWidth) / 2;
         const logoY = yPos + 2;
         doc.addImage(logoDataURL, logoX, logoY, logoWidth, logoHeight);
-
+    
+        // Ticket number - keep same
         doc.setFontSize(9).setFont('Helvetica', 'bold');
         const ticketY = logoY + logoHeight + 3;
         doc.text(ticket.ticket_number, xPos + ticketWidth/2, ticketY, {align: 'center'});
-
+    
+        // Customer name - BIGGER and BOLD
         if (ticket.displayName) {
-            doc.setFontSize(7).setFont('Helvetica', 'bold');
+            doc.setFontSize(9).setFont('Helvetica', 'bold'); // Increased from 7 to 9, kept bold
             doc.text(ticket.displayName, xPos + ticketWidth/2, ticketY + 4, {align: 'center'});
         }
-
+    
+        // Phone number - BIGGER
         if (ticket.formattedPhone) {
-            doc.setFontSize(6).setFont('Helvetica', 'normal');
+            doc.setFontSize(8).setFont('Helvetica', 'normal'); // Increased from 6 to 8
             doc.text(ticket.formattedPhone, xPos + ticketWidth/2, ticketY + 8, {align: 'center'});
         }
-
+    
+        // Email - slightly bigger
         if (ticket.displayEmail) {
-            doc.setFontSize(5).setFont('Helvetica', 'normal');
+            doc.setFontSize(6).setFont('Helvetica', 'normal'); // Increased from 5 to 6
             doc.text(ticket.displayEmail, xPos + ticketWidth/2, ticketY + 11, {align: 'center'});
         }
-
+    
         if ((index + 1) % 200 === 0) {
             console.log(`⏱️ Progress: ${index + 1}/${processedTickets.length} tickets`);
         }
